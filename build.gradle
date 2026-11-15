@@ -1,0 +1,92 @@
+plugins {
+	id 'dev.kikugie.loom-back-compat'
+	id 'maven-publish'
+}
+
+version = "${property('mod_version')}+${sc.current.version}"
+group = property('maven_group')
+
+base {
+	archivesName = "${property('archives_base_name')}-${sc.current.version}"
+}
+
+repositories {
+	maven { url = 'https://maven.fabricmc.net/' }
+	mavenCentral()
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		serverstyler {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${sc.current.version}"
+	// No-op for the unobfuscated (26.1+) Loom variant.
+	loomx.applyMojangMappings()
+	// loom-back-compat aliases modImplementation -> implementation on 26.1+.
+	modImplementation "net.fabricmc:fabric-loader:${property('loader_version')}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${property('fabric_api_version')}"
+
+	// Bundle the current MixinExtras and let Loader's version resolution pick the
+	// newest available copy (see below). ServerStyler does not call the MixinExtras
+	// API directly; this is shipped purely to guarantee a fixed MixinExtras at
+	// runtime, because the mod's own @Redirect mixins trip a bug in 0.5.0-beta.4.
+	//
+	// Why this is needed: MixinExtras' FactoryRedirectWrapperMixinTransformer (used
+	// for @Redirect factories) read a @Redirect annotation's `at` element with the
+	// deprecated single-value accessor and immediately cast the result to
+	// AnnotationNode. javac always encodes an array-typed annotation element as a
+	// list, so every @Redirect compiled by javac yields an ArrayList there and the
+	// cast throws ClassCastException while the target class is being transformed:
+	//
+	//   java.lang.ClassCastException: class java.util.ArrayList cannot be cast to
+	//   class org.objectweb.asm.tree.AnnotationNode
+	//     at ...FactoryRedirectWrapperMixinTransformer.transform(...:18)
+	//
+	// 0.5.5 (and 0.5.0-beta.5+) use Annotations.getValue(node, key, true), which
+	// normalises both encodings into a List, so the transform succeeds. Fabric
+	// Loader resolves one version per mod id and 0.5.5 sorts newer than
+	// 0.5.0-beta.4, which is exactly what makes this an effective fix even when
+	// another mod jar-in-jars the broken pre-release.
+	include "io.github.llamalad7:mixinextras-fabric:${property('mixinextras_version')}"
+}
+
+def mcJava = JavaVersion.toVersion(property('java_version'))
+java {
+	withSourcesJar()
+	sourceCompatibility = mcJava
+	targetCompatibility = mcJava
+}
+
+def javaRelease = Integer.parseInt(project.property('java_version').toString())
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = javaRelease
+}
+
+processResources {
+	inputs.property 'version', project.version
+	inputs.property 'minecraft_range', project.property('minecraft_range')
+	inputs.property 'java_version', project.property('java_version')
+	filesMatching('fabric.mod.json') {
+		expand(
+				'version': project.version,
+				'minecraft_range': project.property('minecraft_range'),
+				'java_version': project.property('java_version')
+		)
+	}
+}
+
+publishing {
+	publications {
+		create('mavenJava', MavenPublication) {
+			from components.java
+		}
+	}
+}

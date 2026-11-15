@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "serverstyler",
+	"version": "${version}",
+	"name": "ServerStyler",
+	"description": "Customise multiplayer server names with full RGB colours, multi-stop linear gradients, opacity (ARGB) and formatting flags, edited from the native Add/Edit Server screen and rendered live in the multiplayer list.",
+	"authors": [
+		"zelekdev",
+		"Deepseek (70% code)"
+	],
+	"contact": {
+		"sources": "https://github.com/zelekdev/ServerStyler"
+	},
+	"license": "MIT",
+	"icon": "assets/serverstyler/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"pl.zelekdev.serverstyler.client.ServerStylerClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "serverstyler.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "${minecraft_range}",
+		"java": ">=${java_version}",
+		"fabric-api": "*"
+	}
+}

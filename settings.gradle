@@ -1,0 +1,48 @@
+// ---------------------------------------------------------------------------
+// ServerStyler - Stonecutter multi-version build
+//
+// Four shipped jars cover Minecraft 1.21.4 through 26.3. The four targets are
+// the OLDEST version of each compatible API window, because a jar built against
+// the oldest member of a window runs on every later member (Fabric forwards
+// binary compatibility inside a window):
+//
+//   1.21.4 -> 1.21.4, 1.21.5          GuiGraphics.drawString returns int,
+//                                     mouseClicked(double,double,int)
+//   1.21.6 -> 1.21.6, 1.21.7, 1.21.8  drawString now returns void,
+//                                     still the legacy input API
+//   1.21.9 -> 1.21.9, 1.21.10, 1.21.11  new MouseButtonEvent input API,
+//                                     ResourceLocation became Identifier
+//   26.1   -> 26.1, 26.1.x, 26.2, 26.3  GuiGraphicsExtractor extract API,
+//                                     RenderPipeline moved package in 26.3
+//                                     (never named in code -> one jar)
+//
+// Two jars would be impossible: JVM descriptors are baked into the bytecode,
+// so the int->void return change and the input-API rewrite cannot be bridged
+// by a refmap.
+// ---------------------------------------------------------------------------
+
+pluginManagement {
+	repositories {
+		maven { name = 'Fabric'; url = uri('https://maven.fabricmc.net/') }
+		maven { name = 'KikuGie Releases'; url = uri('https://maven.kikugie.dev/releases/') }
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+plugins {
+	id 'dev.kikugie.stonecutter' version '0.10'
+	id 'dev.kikugie.loom-back-compat' version '0.4.2'
+}
+
+stonecutter {
+	kotlinController = false
+	centralScript = 'build.gradle'
+
+	create(getRootProject()) {
+		versions '1.21.4', '1.21.6', '1.21.9', '26.1'
+		vcsVersion = '1.21.4'
+	}
+}
+
+rootProject.name = 'ServerStyler'

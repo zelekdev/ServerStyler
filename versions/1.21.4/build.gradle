@@ -1,0 +1,3 @@
+// Shared version-subproject build logic lives in root build.gradle's
+// `subprojects {}` block. Nothing version-specific is needed here.
+// Version-specific properties are read from this directory's gradle.properties.

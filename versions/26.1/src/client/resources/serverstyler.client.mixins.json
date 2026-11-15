@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "pl.zelekdev.serverstyler.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"ScreenInvoker",
+		"ManageServerScreenMixin",
+		"ServerSelectionListMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
