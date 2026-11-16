@@ -1,171 +1,49 @@
-# ServerStyler
+# 🎨 ServerStyler
 
-Client-side Fabric mod that lets you customise multiplayer server names with
-full **RGB colours**, **multi-stop linear gradients**, **opacity** (ARGB alpha)
-and **formatting flags** (bold/italic). Styling is edited from inside Minecraft
-native *Add Server* / *Edit Server* screen and rendered live on the server list.
+**ServerStyler** is a lightweight, client-side Fabric mod for Minecraft that lets you customize the look of servers on your multiplayer list with **RGB colors, smooth multi-stop gradients, transparency, and text formatting**—all through a clean, native-feeling in-game editor.
 
-## Features
+No server plugins required. Your custom server names are saved locally and render live right inside your server list!
 
-- Colour picker: **vertical hue slider**, live **hex field**, live **opacity**
-  (0-100%) field.
-- **Solid** and **multi-stop gradient** (up to 3 stops) modes.
-- **Alpha / opacity** with a checkered transparency preview and a 10% minimum
-  preview floor so text always stays legible.
-- Bold / Italic flags.
-- **WYSIWYG** preview rendered straight inside the server-name text box (the
-  field never shows markup).
-- A 20x20 vanilla-styled trigger button next to the name field toggles a
-  floating side panel.
-- Styles are matched to servers by address and stored in
-  `config/serverstyler/servers.json`.
+---
 
-## Supported versions
+## ✨ Features
 
-| Node | Toolchain | Status |
-| ---- | --------- | ------ |
-| **1.21.4** | obfuscated, remapping Loom, Java 21 | Fully implemented and verified (`./gradlew :1.21.4:build`) |
-| **26.2** | unobfuscated, non-remapping Loom, Java 25 | Fully implemented and verified (`./gradlew :26.2:build`) |
+* **Full RGB & Gradient Picker:** Choose a single solid color or create smooth linear gradients with up to **3 color stops**.
+* **In-Game Visual Editor:** Click the palette button right next to the *Server Name* field in the **Add Server** or **Edit Server** screen to open a floating side panel with a vertical color spectrum slider, opacity slider, and live Hex/percentage inputs.
+* **Live WYSIWYG Preview:** See your exact colors, gradients, and transparency live inside the text box as you type—zero messy formatting codes or tags.
+* **Opacity & Formatting:** Adjust text transparency (`0%–100%`) with a checkered preview, and toggle **Bold** or *Italic* styles with one click.
+* **Zero Performance Impact:** Built to be fast and lightweight, keeping your multiplayer menu smooth without lag or FPS drops.
 
-Minecraft 26.1 removed obfuscation and replaced the GUI rendering + input model,
-so the mod ships **two client implementations** that share one core:
+---
 
-- the version-agnostic core (config model, colour maths, gradient engine,
-  styling engine) lives in `src/`,
-- the version-specific GUI + mixins live in `versions/<mc_version>/src/client/`
-  (classic `GuiGraphics` for 1.21.4, `GuiGraphicsExtractor` + extract/render-state
-  and `MouseButtonEvent` input for 26.2).
+## 🎮 Supported Versions
 
-## Multi-version build (Stonecutter)
+* **Minecraft `1.21.4 - 26.3`** (Fabric)
 
-The project uses [Stonecutter](https://stonecutter.kikugie.dev) plus
-`dev.kikugie.loom-back-compat` to build one shared source tree for several
-Minecraft versions. Nodes are declared in `settings.gradle`:
+---
 
-```groovy
-stonecutter {
-    create(getRootProject()) {
-        versions '1.21.4', '26.2'
-        vcsVersion = '1.21.4'
-    }
-}
-```
+## 📥 Installation
 
-`loom-back-compat` automatically selects the correct Fabric Loom plugin per
-node: the remapping Loom (`net.fabricmc.fabric-loom-remap`) for obfuscated
-versions (< 26.1) and the new non-remapping Loom (`net.fabricmc.fabric-loom`)
-for the unobfuscated game (>= 26.1). It also aliases `modImplementation` ->
-`implementation` and makes `loomx.applyMojangMappings()` a no-op where mappings do
-not exist.
+1. Make sure you have [Fabric Loader](https://fabricmc.net/) installed for your Minecraft version (`1.21.4` or `26.2`).
+2. Download the matching `ServerStyler` `.jar` file from the **Releases** tab (or Modrinth).
+3. Download and install [Fabric API](https://modrinth.com/mod/fabric-api) (required).
+4. Place both `.jar` files into your `.minecraft/mods` folder.
+5. Launch the game and enjoy!
 
-Per-node versions live in `versions/<mc_version>/gradle.properties`:
+---
 
-```properties
-# versions/1.21.4/gradle.properties
-minecraft_version=1.21.4
-java_version=21
-fabric_api_version=0.119.4+1.21.4
-```
+## 🛠️ How to Use
 
-### Requirements
+1. Go to **Multiplayer** in Minecraft.
+2. Click **Add Server** or select an existing server and click **Edit**.
+3. Click the small **color button** next to the **Server Name** input box.
+4. Use the side panel to pick your colors, switch between **Solid** and **Gradient** modes, adjust **Opacity**, or toggle **Bold / Italic**.
+5. Click **Done**—your styled server name will immediately appear on your server list!
 
-- JDK 21 to build the `1.21.4` node.
-- JDK 25 (Gradle JVM) to build the `26.2` node, because Minecraft 26.1+ requires
-  Java 25.
-- Internet access on first run (Stonecutter + Loom download their toolchains).
+---
 
-### Build
+## ⚙️ Configuration
 
-```bash
-# Windows
-set JAVA_HOME=C:\path\to\jdk
-./gradlew :1.21.4:build
-./gradlew :26.2:build
-
-# Linux / macOS
-export JAVA_HOME=/path/to/jdk
-./gradlew :1.21.4:build
-./gradlew :26.2:build
-```
-
-Jars land in `versions/<mc_version>/build/libs/`.
-
-### Run the client in a dev environment
-
-```bash
-./gradlew :1.21.4:runClient
-```
-
-## Configuration
-
-The config file is written **asynchronously** and **atomically** (a `.tmp` file
-is written, then moved over the real file) to:
-
-```
-config/serverstyler/servers.json
-```
-
-Schema (v1):
-
-```json
-{
-  "schemaVersion": 1,
-  "servers": {
-    "play.example.com": {
-      "enabled": true,
-      "mode": "GRADIENT",
-      "colors": ["#FF5555", "#55FFFF"],
-      "opacity": 0.85,
-      "bold": true,
-      "italic": false
-    }
-  }
-}
-```
-
-If the file is ever malformed it is moved aside to `servers.json.bak` and a
-fresh default config is regenerated, so a bad file can never crash the game.
-
-## How it works
-
-**1.21.4 node** (`versions/1.21.4/src/client/`):
-
-- `EditServerScreenMixin` injects a trigger button + the floating
-  `StyleEditorPanel` next to the name field, installs a custom `EditBox`
-  formatter that renders the styled name live (WYSIWYG) and persists the style on
-  close.
-- `ServerSelectionListMixin` redirects the single
-  `GuiGraphics.drawString(Font, String, ...)` call in
-  `OnlineServerEntry.render` (the server name) and renders the per-character
-  gradient component instead; ping icons, player counts, MOTD and tooltips are
-  left untouched.
-
-**26.2 node** (`versions/26.2/src/client/`) mirrors the above against the 26.1+
-API:
-
-- `ManageServerScreenMixin` targets `ManageServerScreen` (the replacement for
-  `EditServerScreen`), uses `EditBox.addFormatter(...)`, `GuiGraphicsExtractor`
-  and `extractRenderState`.
-- `ServerSelectionListMixin` redirects
-  `GuiGraphicsExtractor.text(Font, String, ...)` inside
-  `OnlineServerEntry.extractContent`.
-- The sliders honour the new `MouseButtonEvent` / `MouseButtonInfo` input API and
-  `extractWidgetRenderState` rendering.
-
-Shared by both nodes: `TextStylingEngine` builds per-character `Component`s from
-a `ServerStyle`, with a revision-keyed cache (`RenderCache`) so a static screen
-costs nothing.
-
-## Project layout
-
-```
-src/main/java          version-agnostic core (config model, colour maths, styling engine)
-src/main/resources     fabric.mod.json + assets (shared)
-src/client/java        version-agnostic client entrypoint (ServerStylerClient)
-versions/1.21.4/       gradle.properties + src/client (classic GuiGraphics API)
-versions/26.2/         gradle.properties + src/client (extract/render-state API)
-```
-
-## License
-
-MIT.
+All your custom server styles are automatically saved in:
+```text
+.minecraft/config/serverstyler/servers.json

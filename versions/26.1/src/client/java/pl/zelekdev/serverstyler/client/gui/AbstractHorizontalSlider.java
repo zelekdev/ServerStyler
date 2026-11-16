@@ -1,5 +1,3 @@
-package pl.zelekdev.serverstyler.client.gui;
-
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
