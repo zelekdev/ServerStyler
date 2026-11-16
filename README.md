@@ -24,8 +24,8 @@ No server plugins required. Your custom server names are saved locally and rende
 
 ## 📥 Installation
 
-1. Make sure you have [Fabric Loader](https://fabricmc.net/) installed for your Minecraft version (`1.21.4` or `26.2`).
-2. Download the matching `ServerStyler` `.jar` file from the **Releases** tab (or Modrinth).
+1. Make sure you have [Fabric Loader](https://fabricmc.net/) installed for your Minecraft version
+2. Download the matching `ServerStyler` `.jar` file from the Modrinth.
 3. Download and install [Fabric API](https://modrinth.com/mod/fabric-api) (required).
 4. Place both `.jar` files into your `.minecraft/mods` folder.
 5. Launch the game and enjoy!
