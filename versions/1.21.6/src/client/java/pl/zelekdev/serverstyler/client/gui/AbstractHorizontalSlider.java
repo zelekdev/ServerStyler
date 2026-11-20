@@ -30,6 +30,12 @@ public abstract class AbstractHorizontalSlider extends AbstractWidget {
 	private final Font font;
 	protected double value;
 
+	/** Called when a press starts a gesture; no-op until the panel wires it. */
+	private Runnable gestureStart = () -> {
+	};
+	/** Called when the press that started a gesture is released. */
+	private Runnable gestureEnd = () -> {
+	};
 	public AbstractHorizontalSlider(Font font, int x, int y, int width, int height, Component message,
 									double value) {
 		super(x, y, width, height, message);
@@ -37,6 +43,20 @@ public abstract class AbstractHorizontalSlider extends AbstractWidget {
 		this.value = Mth.clamp(value, 0.0, 1.0);
 	}
 
+	/**
+	 * Wires the gesture callbacks.
+	 *
+	 * <p>A slider drag fires dozens of value changes per second. The panel uses
+	 * these hooks to collapse the whole press-drag-release into a single undo
+	 * entry, so undo returns to the value the slider had when it was grabbed
+	 * rather than to the previous pixel of the drag.</p>
+	 */
+	public void setGestureHooks(Runnable start, Runnable end) {
+		this.gestureStart = start == null ? () -> {
+		} : start;
+		this.gestureEnd = end == null ? () -> {
+		} : end;
+	}
 	public double getValue() {
 		return value;
 	}
@@ -103,9 +123,18 @@ public abstract class AbstractHorizontalSlider extends AbstractWidget {
 			return false;
 		}
 		if (isValidClickButton(button) && isMouseOver(mouseX, mouseY)) {
+			this.gestureStart.run();
 			onClick(mouseX, mouseY);
 			return true;
 		}
+		return false;
+	}
+
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		// Ends the gesture opened in mouseClicked(), so the panel can push exactly
+		// one undo entry for the whole press-drag-release.
+		this.gestureEnd.run();
 		return false;
 	}
 

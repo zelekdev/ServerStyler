@@ -33,11 +33,13 @@ import java.util.function.Consumer;
  *
  * <h3>Two layouts</h3>
  * <p>At GUI scale 1&ndash;2 there is room for the full column
- * ({@value #FULL_HEIGHT}&nbsp;px). At GUI scale 3 the usable screen is only about
- * 640&times;360 GUI pixels and the editor panel already takes 254 of those 360, so
- * the column switches to a compact layout ({@value #COMPACT_HEIGHT}&nbsp;px): a
- * 4&times;3 built-in grid, one saved row per page and no section captions. That is
- * what makes the presets reachable at every scale instead of silently vanishing.</p>
+ * ({@value #FULL_HEIGHT}&nbsp;px): a 2&times;6 built-in grid with wide cells and
+ * four saved rows per page. At GUI scale 3 the usable screen is only about
+ * 640&times;360 GUI pixels, so the column switches to a compact layout
+ * ({@value #COMPACT_HEIGHT}&nbsp;px): a 4&times;3 built-in grid and three saved
+ * rows per page. The tiny layout ({@value #TINY_HEIGHT}&nbsp;px) keeps the
+ * 4&times;3 grid and one saved row. That is what makes the presets reachable at
+ * every scale instead of silently vanishing.</p>
  *
  * <h3>Placement policy</h3>
  * <p>Never to the left of the editor panel &mdash; that used to overlap the name
@@ -56,13 +58,13 @@ public final class PresetPanel extends AbstractWidget {
 	public static final int WIDTH = 180;
 
 	/** Height of the full column (GUI scale 1&ndash;2). */
-	public static final int FULL_HEIGHT = 188;
+	public static final int FULL_HEIGHT = 259;
 
 	/** Height of the compact column (GUI scale 3). */
-	public static final int COMPACT_HEIGHT = 105;
+	public static final int COMPACT_HEIGHT = 145;
 
 	/** Height of the tiny column (GUI scale 3 on a small window). */
-	public static final int TINY_HEIGHT = 88;
+	public static final int TINY_HEIGHT = 96;
 
 	/** Gap between the two windows, and between the column and the editor. */
 	public static final int GAP = 4;
@@ -94,19 +96,22 @@ public final class PresetPanel extends AbstractWidget {
 	private EditBox nameBox;
 	private Button saveButton;
 
-	private final Button[] rowButtons = new Button[3];
-	private final Button[] deleteButtons = new Button[3];
+	/** Largest number of saved rows any layout shows. */
+	private static final int MAX_USER_ROWS = 4;
+
+	private final Button[] rowButtons = new Button[MAX_USER_ROWS];
+	private final Button[] deleteButtons = new Button[MAX_USER_ROWS];
 	/** Per-row rename buttons, parallel to {@link #rowButtons}. */
-	private final Button[] renameButtons = new Button[3];
+	private final Button[] renameButtons = new Button[MAX_USER_ROWS];
 	/** Per-row duplicate buttons, parallel to {@link #rowButtons}. */
-	private final Button[] duplicateButtons = new Button[3];
+	private final Button[] duplicateButtons = new Button[MAX_USER_ROWS];
 	private Button prevButton;
 	private Button nextButton;
 
 	/** Zero-based index of the visible page of user presets. */
 	private int page;
 	/** Names currently bound to the visible rows, parallel to {@link #rowButtons}. */
-	private final String[] rowNames = new String[3];
+	private final String[] rowNames = new String[MAX_USER_ROWS];
 
 	// ---- Active layout metrics (set by applyMode) ---------------------------
 	private int mode;
@@ -174,21 +179,21 @@ public final class PresetPanel extends AbstractWidget {
 		this.compact = mode != StyleEditorPanel.MODE_FULL;
 		if (mode == StyleEditorPanel.MODE_TINY) {
 			this.headerH = 10;
-			this.biGridY = 12;
+			this.biGridY = 11;
 			this.biCols = 4;
 			this.biRows = 3;
 			this.biCellW = (INNER - 12) / 4;
 			this.biCellH = 10;
 			this.biPitch = 11;
-			this.builtinHeight = 45;
+			this.builtinHeight = 46;
 			this.userTop = 48;
-			this.userSaveY = 56;
-			this.userSaveH = 12;
-			this.userRowsY = 70;
+			this.userSaveY = 60;
+			this.userSaveH = 11;
+			this.userRowsY = 74;
 			this.userRows = 1;
-			this.userRowH = 11;
-			this.userPitch = 12;
-			this.userPagerY = 79;
+			this.userRowH = 9;
+			this.userPitch = 10;
+			this.userPagerY = 85;
 			this.userPagerH = 9;
 			this.height = TINY_HEIGHT;
 		} else if (mode == StyleEditorPanel.MODE_COMPACT) {
@@ -197,36 +202,36 @@ public final class PresetPanel extends AbstractWidget {
 			this.biCols = 4;
 			this.biRows = 3;
 			this.biCellW = (INNER - 12) / 4;
-			this.biCellH = 11;
-			this.biPitch = 12;
-			this.builtinHeight = 50;
-			this.userTop = 54;
-			this.userSaveY = 66;
+			this.biCellH = 14;
+			this.biPitch = 16;
+			this.builtinHeight = 64;
+			this.userTop = 68;
+			this.userSaveY = 82;
 			this.userSaveH = 13;
-			this.userRowsY = 81;
-			this.userRows = 1;
-			this.userRowH = 12;
-			this.userPitch = 13;
-			this.userPagerY = 95;
-			this.userPagerH = 10;
+			this.userRowsY = 99;
+			this.userRows = 3;
+			this.userRowH = 11;
+			this.userPitch = 12;
+			this.userPagerY = 136;
+			this.userPagerH = 9;
 			this.height = COMPACT_HEIGHT;
 		} else {
 			this.headerH = 13;
 			this.biGridY = 25;
-			this.biCols = 3;
-			this.biRows = 4;
-			this.biCellW = (INNER - 8) / 3;
-			this.biCellH = 12;
-			this.biPitch = 13;
-			this.builtinHeight = 79;
-			this.userTop = 83;
-			this.userSaveY = 108;
+			this.biCols = 2;
+			this.biRows = 6;
+			this.biCellW = (INNER - 4) / 2;
+			this.biCellH = 16;
+			this.biPitch = 18;
+			this.builtinHeight = 133;
+			this.userTop = 137;
+			this.userSaveY = 164;
 			this.userSaveH = 14;
-			this.userRowsY = 133;
-			this.userRows = 3;
+			this.userRowsY = 194;
+			this.userRows = 4;
 			this.userRowH = 12;
 			this.userPitch = 13;
-			this.userPagerY = 175;
+			this.userPagerY = 248;
 			this.userPagerH = 10;
 			this.height = FULL_HEIGHT;
 		}
