@@ -1,6 +1,7 @@
 package pl.zelekdev.serverstyler.client;
 
 import pl.zelekdev.serverstyler.config.ConfigManager;
+import pl.zelekdev.serverstyler.config.PresetStore;
 import pl.zelekdev.serverstyler.render.RenderCache;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -18,12 +19,15 @@ public final class ServerStylerClient implements ClientModInitializer {
 	public static final Logger LOGGER = LoggerFactory.getLogger("ServerStyler");
 
 	private static ConfigManager config;
+	private static PresetStore presets;
 	private static RenderCache renderCache;
 
 	@Override
 	public void onInitializeClient() {
 		config = new ConfigManager();
 		config.load();
+		presets = new PresetStore();
+		presets.load();
 		renderCache = new RenderCache(config);
 		LOGGER.info("ServerStyler client initialised.");
 		if (config.wasMigrated()) {
@@ -55,13 +59,16 @@ public final class ServerStylerClient implements ClientModInitializer {
 		try {
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				ConfigManager current = config;
-				if (current == null) {
-					return;
-				}
+				PresetStore currentPresets = presets;
 				try {
 					// Distinguishes "quit with unsaved edits" from a plain quit: the latter
 					// must not rewrite servers.json at all.
-					current.flushIfDirty();
+					if (current != null) {
+						current.flushIfDirty();
+					}
+					if (currentPresets != null) {
+						currentPresets.flushIfDirty();
+					}
 				} catch (RuntimeException e) {
 					LOGGER.warn("Could not flush ServerStyler config on shutdown: {}",
 							e.getMessage());
@@ -76,6 +83,10 @@ public final class ServerStylerClient implements ClientModInitializer {
 
 	public static ConfigManager config() {
 		return config;
+	}
+
+	public static PresetStore presets() {
+		return presets;
 	}
 
 	public static RenderCache renderCache() {

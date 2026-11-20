@@ -524,4 +524,32 @@ public final class ServerStyle {
 		return new ServerStyle(enabled, mode, colors, positions, opacity, bold, italic, alignment,
 				miniCaps);
 	}
+
+	/**
+	 * Copies every field of {@code other} into <em>this</em> instance, in place.
+	 *
+	 * <p>Used when a preset is applied: the editor holds a live reference to the
+	 * working style, and the host screen persists that exact instance, so the
+	 * preset has to be merged into it rather than replacing the reference.</p>
+	 *
+	 * <p>Self-assignment is a no-op, and the result is re-normalised so a preset
+	 * can never leave the object in an illegal state.</p>
+	 */
+	public void copyFrom(ServerStyle other) {
+		if (other == null || other == this) {
+			return;
+		}
+		this.enabled = other.enabled;
+		this.mode = other.mode;
+		this.colors.clear();
+		this.colors.addAll(other.colors);
+		this.positions.clear();
+		this.positions.addAll(other.positions);
+		this.opacity = other.opacity;
+		this.bold = other.bold;
+		this.italic = other.italic;
+		this.alignment = other.alignment;
+		this.miniCaps = other.miniCaps;
+		normalise();
+	}
 }

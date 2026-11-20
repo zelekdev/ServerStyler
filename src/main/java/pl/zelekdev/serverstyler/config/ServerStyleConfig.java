@@ -230,38 +230,10 @@ public final class ServerStyleConfig {
 			root.addProperty("schemaVersion", src.getSchemaVersion());
 			JsonObject servers = new JsonObject();
 			for (Map.Entry<String, ServerStyle> e : src.getServers().entrySet()) {
-				servers.add(e.getKey(), serializeStyle(e.getValue()));
+				servers.add(e.getKey(), styleToJson(e.getValue()));
 			}
 			root.add("servers", servers);
 			return root;
-		}
-
-		private JsonObject serializeStyle(ServerStyle s) {
-			JsonObject o = new JsonObject();
-			o.addProperty("enabled", s.isEnabled());
-			o.addProperty("mode", s.getMode());
-			JsonArray colors = new JsonArray();
-			for (String c : s.getColors()) {
-				colors.add(ColorUtils.sanitiseHex(c));
-			}
-			o.add("colors", colors);
-			// v4: stop positions, parallel to colors. Written unconditionally so the
-			// on-disk file is always self-describing; ServerStyle guarantees the list
-			// matches the colour count and is pinned to 0/1.
-			JsonArray positions = new JsonArray();
-			for (float p : s.getPositions()) {
-				positions.add(p);
-			}
-			o.add("positions", positions);
-			o.addProperty("opacity", s.getOpacity());
-			o.addProperty("bold", s.isBold());
-			o.addProperty("italic", s.isItalic());
-			// v3: miniCaps. Old files lack the key -> parser defaults to false.
-			o.addProperty("miniCaps", s.isMiniCaps());
-			// v2: alignment. null is impossible after ServerStyle.normalise(), but
-			// coerce defensively so we never write `"alignment": null`.
-			o.addProperty("alignment", ServerStyle.coerceAlignment(s.getAlignment()));
-			return o;
 		}
 
 		@Override
@@ -285,7 +257,7 @@ public final class ServerStyleConfig {
 				if (!isPlausibleAddress(key)) {
 					continue;
 				}
-				map.put(key, parseStyle(e.getValue().getAsJsonObject()));
+				map.put(key, styleFromJson(e.getValue().getAsJsonObject()));
 			}
 			ServerStyleConfig cfg = new ServerStyleConfig(map);
 			// Always migrate up to the current schema; old files simply gain
@@ -293,59 +265,103 @@ public final class ServerStyleConfig {
 			cfg.setSchemaVersion(Math.max(version, SCHEMA_VERSION));
 			return cfg;
 		}
+	}
 
-		private ServerStyle parseStyle(JsonObject obj) {
-			boolean enabled = JsonUtils.asBool(obj.get("enabled"), true);
-			// Bounded read: a hand-edited file must not smuggle a large string into a
-			// field that is only ever compared against two short constants.
-			String modeRaw = JsonUtils.asString(obj.get("mode"), ServerStyle.MODE_SOLID, 16)
-					.toUpperCase(Locale.ROOT);
-			String mode = ServerStyle.MODE_GRADIENT.equals(modeRaw)
-					? ServerStyle.MODE_GRADIENT
-					: ServerStyle.MODE_SOLID;
-
-			JsonArray arr = JsonUtils.asArray(obj.get("colors"), null);
-			List<String> colors = new ArrayList<>();
-			if (arr != null) {
-				int limit = JsonUtils.limit(arr);
-				for (int i = 0; i < limit; i++) {
-					JsonElement el = arr.get(i);
-					if (el instanceof JsonPrimitive p && p.isString()) {
-						colors.add(ColorUtils.sanitiseHex(p.getAsString()));
-					}
-				}
-			}
-			if (colors.isEmpty()) {
-				colors.add("#FFFFFF");
-			}
-			if (mode.equals(ServerStyle.MODE_SOLID) && colors.size() > 1) {
-				colors.subList(1, colors.size()).clear();
-			}
-
-			// v4: stop positions. Absent in older files -> null, which ServerStyle
-			// repairs into an even spread, exactly reproducing the old rendering.
-			List<Float> positions = new ArrayList<>();
-			JsonArray posArr = JsonUtils.asArray(obj.get("positions"), null);
-			if (posArr != null) {
-				int limit = JsonUtils.limit(posArr);
-				for (int i = 0; i < limit; i++) {
-					JsonElement el = posArr.get(i);
-					if (el != null && el.isJsonPrimitive()) {
-						positions.add(JsonUtils.asFloat(el, Float.NaN));
-					}
-				}
-			}
-
-			float opacity = JsonUtils.asFloat(obj.get("opacity"), 1.0f);
-			boolean bold = JsonUtils.asBool(obj.get("bold"), false);
-			boolean italic = JsonUtils.asBool(obj.get("italic"), false);
-			// v3 field: absent in older files -> false, so old configs render unchanged.
-			boolean miniCaps = JsonUtils.asBool(obj.get("miniCaps"), false);
-			// v2 field: absent in older files -> coerceAlignment(null) -> LEFT.
-			String alignment = JsonUtils.asString(obj.get("alignment"), null, 16);
-
-			return new ServerStyle(enabled, mode, colors, positions, opacity, bold, italic, alignment,
-					miniCaps);
+	/**
+	 * Serialises one style into the canonical on-disk shape.
+	 *
+	 * <p>Public so the preset store can write exactly the same object shape as the
+	 * server map: a preset is just a style with a name attached, and keeping one
+	 * serializer means a preset saved today is readable by any future build that
+	 * understands the style schema.</p>
+	 */
+	public static JsonObject styleToJson(ServerStyle s) {
+		JsonObject o = new JsonObject();
+		o.addProperty("enabled", s.isEnabled());
+		o.addProperty("mode", s.getMode());
+		JsonArray colors = new JsonArray();
+		for (String c : s.getColors()) {
+			colors.add(ColorUtils.sanitiseHex(c));
 		}
+		o.add("colors", colors);
+		// v4: stop positions, parallel to colors. Written unconditionally so the
+		// on-disk file is always self-describing; ServerStyle guarantees the list
+		// matches the colour count and is pinned to 0/1.
+		JsonArray positions = new JsonArray();
+		for (float p : s.getPositions()) {
+			positions.add(p);
+		}
+		o.add("positions", positions);
+		o.addProperty("opacity", s.getOpacity());
+		o.addProperty("bold", s.isBold());
+		o.addProperty("italic", s.isItalic());
+		// v3: miniCaps. Old files lack the key -> parser defaults to false.
+		o.addProperty("miniCaps", s.isMiniCaps());
+		// v2: alignment. null is impossible after ServerStyle.normalise(), but
+		// coerce defensively so we never write `"alignment": null`.
+		o.addProperty("alignment", ServerStyle.coerceAlignment(s.getAlignment()));
+		return o;
+	}
+
+	/**
+	 * Parses one style object from the canonical on-disk shape.
+	 *
+	 * <p>Deliberately tolerant: unknown fields are ignored, missing fields take
+	 * defaults, and malformed values fall back to safe defaults without ever
+	 * throwing. Shared by the server map and the preset store so both read the
+	 * exact same format.</p>
+	 */
+	public static ServerStyle styleFromJson(JsonObject obj) {
+		boolean enabled = JsonUtils.asBool(obj.get("enabled"), true);
+		// Bounded read: a hand-edited file must not smuggle a large string into a
+		// field that is only ever compared against two short constants.
+		String modeRaw = JsonUtils.asString(obj.get("mode"), ServerStyle.MODE_SOLID, 16)
+				.toUpperCase(Locale.ROOT);
+		String mode = ServerStyle.MODE_GRADIENT.equals(modeRaw)
+				? ServerStyle.MODE_GRADIENT
+				: ServerStyle.MODE_SOLID;
+
+		JsonArray arr = JsonUtils.asArray(obj.get("colors"), null);
+		List<String> colors = new ArrayList<>();
+		if (arr != null) {
+			int limit = JsonUtils.limit(arr);
+			for (int i = 0; i < limit; i++) {
+				JsonElement el = arr.get(i);
+				if (el instanceof JsonPrimitive p && p.isString()) {
+					colors.add(ColorUtils.sanitiseHex(p.getAsString()));
+				}
+			}
+		}
+		if (colors.isEmpty()) {
+			colors.add("#FFFFFF");
+		}
+		if (mode.equals(ServerStyle.MODE_SOLID) && colors.size() > 1) {
+			colors.subList(1, colors.size()).clear();
+		}
+
+		// v4: stop positions. Absent in older files -> null, which ServerStyle
+		// repairs into an even spread, exactly reproducing the old rendering.
+		List<Float> positions = new ArrayList<>();
+		JsonArray posArr = JsonUtils.asArray(obj.get("positions"), null);
+		if (posArr != null) {
+			int limit = JsonUtils.limit(posArr);
+			for (int i = 0; i < limit; i++) {
+				JsonElement el = posArr.get(i);
+				if (el != null && el.isJsonPrimitive()) {
+					positions.add(JsonUtils.asFloat(el, Float.NaN));
+				}
+			}
+		}
+
+		float opacity = JsonUtils.asFloat(obj.get("opacity"), 1.0f);
+		boolean bold = JsonUtils.asBool(obj.get("bold"), false);
+		boolean italic = JsonUtils.asBool(obj.get("italic"), false);
+		// v3 field: absent in older files -> false, so old configs render unchanged.
+		boolean miniCaps = JsonUtils.asBool(obj.get("miniCaps"), false);
+		// v2 field: absent in older files -> coerceAlignment(null) -> LEFT.
+		String alignment = JsonUtils.asString(obj.get("alignment"), null, 16);
+
+		return new ServerStyle(enabled, mode, colors, positions, opacity, bold, italic, alignment,
+				miniCaps);
 	}
 }

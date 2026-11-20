@@ -42,3 +42,6 @@ replay_*.log
 # local build/recon logs
 *.log
 api_*.txt
+
+# local test-harness output
+logs/

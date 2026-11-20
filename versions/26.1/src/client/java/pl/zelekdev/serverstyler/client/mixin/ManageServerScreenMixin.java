@@ -1,9 +1,11 @@
 package pl.zelekdev.serverstyler.client.mixin;
 
 import pl.zelekdev.serverstyler.client.ServerStylerClient;
+import pl.zelekdev.serverstyler.client.gui.PresetPanel;
 import pl.zelekdev.serverstyler.client.gui.StyleEditorPanel;
 import pl.zelekdev.serverstyler.client.gui.StyleTriggerButton;
 import pl.zelekdev.serverstyler.config.ConfigManager;
+import pl.zelekdev.serverstyler.config.PresetStore;
 import pl.zelekdev.serverstyler.config.ServerStyle;
 import pl.zelekdev.serverstyler.config.ServerStyleConfig;
 import pl.zelekdev.serverstyler.render.TextStylingEngine;
@@ -61,6 +63,9 @@ public abstract class ManageServerScreenMixin {
 	private StyleEditorPanel serverstyler$panel;
 
 	@Unique
+	private PresetPanel serverstyler$presets;
+
+	@Unique
 	private StyleTriggerButton serverstyler$trigger;
 
 	@Unique
@@ -112,10 +117,22 @@ public abstract class ManageServerScreenMixin {
 		this.serverstyler$panel = panel;
 		panel.setVisible(wasVisible);
 
+		// The preset shelf hangs directly below the editor panel and shares its
+		// visibility, so one trigger button opens both.
+		PresetStore presets = ServerStylerClient.presets();
+		if (presets != null) {
+			PresetPanel shelf = new PresetPanel(working, self.getFont(), presets,
+					this.serverstyler$anchor, panel::onStyleReplaced);
+			invoker.serverstyler$addRenderableWidget(shelf);
+			shelf.addChildren(invoker::serverstyler$addRenderableWidget);
+			this.serverstyler$presets = shelf;
+			shelf.setVisible(wasVisible);
+		}
+
 		this.serverstyler$trigger = new StyleTriggerButton(
 				0, 0, StyleEditorPanel.TRIGGER_SIZE,
 				Component.literal("ServerStyler - edit the server name style"),
-				() -> panel.setVisible(!panel.isVisible()));
+				() -> serverstyler$togglePanels());
 		invoker.serverstyler$addRenderableWidget(this.serverstyler$trigger);
 
 		// Anchor everything to the name field for the current screen size.
@@ -133,6 +150,25 @@ public abstract class ManageServerScreenMixin {
 	}
 
 	/**
+	 * Opens or closes the editor panel and the preset shelf together.
+	 *
+	 * <p>They are one visual unit: the shelf is meaningless without the editor, and
+	 * leaving it on screen after the editor closes would look like a stray window.</p>
+	 */
+	@Unique
+	private void serverstyler$togglePanels() {
+		StyleEditorPanel panel = this.serverstyler$panel;
+		if (panel == null) {
+			return;
+		}
+		boolean show = !panel.isVisible();
+		panel.setVisible(show);
+		if (this.serverstyler$presets != null) {
+			this.serverstyler$presets.setVisible(show);
+		}
+	}
+
+	/**
 	 * Repositions the trigger button and the panel using GUI-scaled screen
 	 * coordinates. Invoked from {@code init} and from every extract pass, so the
 	 * layout self-heals after a GUI-scale or window-size change.
@@ -145,6 +181,24 @@ public abstract class ManageServerScreenMixin {
 			return;
 		}
 		panel.relayout();
+
+		// The preset column prefers the space to the RIGHT of the editor panel and
+		// only falls back to stacking below it. It never goes to the left, because
+		// that used to cover the name field. If neither spot fits it hides itself.
+		if (this.serverstyler$presets != null) {
+			PresetPanel presets = this.serverstyler$presets;
+			if (!presets.tryPlaceRight(panel.getX(), panel.getY(), panel.height())) {
+				// StyleEditorPanel.relayout() already lifts the editor to the top
+				// margin in compact mode when the column would not fit below it, so
+				// this only has to decide between stacking and hiding.
+				int stackHeight = presets.heightForStack(panel.getY(), panel.height());
+				if (stackHeight > 0) {
+					presets.placeBelow(panel.getX(), panel.getY(), panel.height(), stackHeight);
+				} else {
+					presets.hideForSpace();
+				}
+			}
+		}
 
 		if (this.serverstyler$trigger != null) {
 			int screenWidth = anchor.screenWidth();

@@ -15,6 +15,9 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -58,9 +61,17 @@ import java.util.function.Consumer;
  */
 public final class StyleEditorPanel extends AbstractWidget {
 
-	/** Panel size in GUI-scaled pixels. */
+	/** Panel width in GUI-scaled pixels. */
 	public static final int WIDTH = 180;
+
+	/** Height of the full panel (GUI scale 1&ndash;2). */
 	public static final int HEIGHT = 254;
+
+	/** Height of the compact panel (GUI scale 3). */
+	public static final int COMPACT_HEIGHT = 155;
+
+	/** Height of the tiny panel (GUI scale 3 on a small window). */
+	public static final int TINY_HEIGHT = 130;
 
 	/** Gap between the name field and the trigger button. */
 	public static final int TRIGGER_GAP = 4;
@@ -75,55 +86,75 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 	private static final int MAX_STOPS = ServerStyle.MAX_GRADIENT_STOPS;
 
-	// ---- Local layout constants (relative to the panel origin) ----------------
+	/** Layout tiers, ordered from roomiest to tightest. */
+	public static final int MODE_FULL = 0;
+	public static final int MODE_COMPACT = 1;
+	public static final int MODE_TINY = 2;
+
+	// ---- Fixed geometry ------------------------------------------------------
 
 	/** Inner content margin, left and right. */
 	private static final int PAD = 8;
 	/** Content width: the space every full-width row spans. */
 	private static final int INNER = WIDTH - PAD * 2;
-	/** Height of a standard control row. */
-	private static final int ROW_H = 16;
-	/** Vertical pitch between stacked control rows. */
-	private static final int PITCH = ROW_H + 4;
-
-	/** Header band height, holding the title and the on/off switch. */
-	private static final int HEADER_H = 18;
-	/** Live preview well. */
-	private static final int PREVIEW_Y = 22;
-	private static final int PREVIEW_H = 20;
-
-	/** "COLOUR" section: label row also carries the +/- buttons. */
-	private static final int COLOUR_LABEL_Y = 48;
-
-	/**
-	 * Draggable gradient bar. Sits directly under the COLOUR label, exactly where a
-	 * gradient editor puts it: the strip shows the resulting blend and each stop
-	 * rides on it as a handle that can be dragged left or right.
-	 */
-	private static final int BAR_Y = 64;
-	private static final int BAR_H = 14;
+	/** Thirds of {@link #INNER}, leaving 3 px gaps between the three cells. */
+	private static final int THIRD_W = (INNER - 6) / 3;
+	/** Halves of {@link #INNER}, leaving a 4 px gap. */
+	private static final int HALF_W = (INNER - 4) / 2;
 	/** Handle marker footprint, centred on the stop position. */
 	private static final int HANDLE_HALF = 4;
 	/** Extra vertical grab area above the bar, so a handle is easy to hit. */
 	private static final int HANDLE_GRAB_ABOVE = 6;
 
-	private static final int HUE_Y = BAR_Y + BAR_H + HANDLE_GRAB_ABOVE + 6;
-	private static final int ALPHA_Y = HUE_Y + PITCH;
-	private static final int HEX_Y = ALPHA_Y + PITCH;
+	/**
+	 * Row height used only for the widgets' <em>initial</em> bounds at construction
+	 * time; {@link #layout(int, int)} overwrites every one of them with the active
+	 * mode's {@link #rowH}.
+	 */
+	private static final int ROW_H = 16;
 
-	/** "STYLE" section. */
-	private static final int STYLE_LABEL_Y = HEX_Y + ROW_H + 10;
-	private static final int MODE_Y = STYLE_LABEL_Y + 16;
-	private static final int FORMAT_Y = MODE_Y + PITCH;
+	// ---- Recent-colour strip ------------------------------------------------
 
-	/** "LAYOUT" section. */
-	private static final int LAYOUT_LABEL_Y = FORMAT_Y + ROW_H + 10;
-	private static final int ALIGN_Y = LAYOUT_LABEL_Y + 16;
+	/** Number of remembered colours. */
+	private static final int MAX_RECENT = 8;
+	/** Width of one recent-colour swatch, in GUI-scaled pixels. */
+	private static final int RECENT_SWATCH_W = 6;
+	/** Gap between two swatches. */
+	private static final int RECENT_SWATCH_GAP = 1;
+	/** Total width of the swatch strip. */
+	private static final int RECENT_STRIP_W =
+			MAX_RECENT * (RECENT_SWATCH_W + RECENT_SWATCH_GAP) - RECENT_SWATCH_GAP;
+	/** Gap between the hex field and the swatch strip. */
+	private static final int RECENT_GAP = 4;
+	/** Width of the hex field once the swatch strip has taken its share. */
+	private static final int HEX_W = INNER - RECENT_STRIP_W - RECENT_GAP;
 
-	/** Thirds of {@link #INNER}, leaving 3 px gaps between the three cells. */
-	private static final int THIRD_W = (INNER - 6) / 3;
-	/** Halves of {@link #INNER}, leaving a 4 px gap. */
-	private static final int HALF_W = (INNER - 4) / 2;
+	// ---- Active layout metrics (set by applyMode) ----------------------------
+	//
+	// These used to be `static final` constants. They are instance fields now so
+	// the panel can switch between a full and a compact geometry at runtime: at
+	// GUI scale 3 the usable screen is only ~640x360 GUI pixels, and a 254 px
+	// panel leaves no room for the preset column at all.
+
+	private boolean compact;
+	private int mode;
+	private int height;
+	private int rowH;
+	private int pitch;
+	private int headerH;
+	private int previewY;
+	private int previewH;
+	private int colourLabelY;
+	private int barY;
+	private int barH;
+	private int hueY;
+	private int alphaY;
+	private int hexY;
+	private int styleLabelY;
+	private int modeY;
+	private int formatY;
+	private int layoutLabelY;
+	private int alignY;
 
 	private final ServerStyle style;
 	private final Font font;
@@ -143,6 +174,9 @@ public final class StyleEditorPanel extends AbstractWidget {
 	private Button alignCenterButton;
 	private Button alignRightButton;
 	private Button miniCapsButton;
+	private Button undoButton;
+	private Button redoButton;
+	private Button resetButton;
 
 	/** Index of the stop being edited, or {@code -1} when none is selected. */
 	private int activeStop;
@@ -155,6 +189,44 @@ public final class StyleEditorPanel extends AbstractWidget {
 	/** True once the anchor produced a sane field position + screen size. */
 	private boolean dimsValid;
 
+	// ---- Recent colours ------------------------------------------------------
+
+	/**
+	 * Recently committed colours, most recent first, as {@code #RRGGBB}.
+	 *
+	 * <p>Kept in memory only: this is a convenience palette for the current
+	 * session, not part of the saved style, so it must never touch the config
+	 * file.</p>
+	 */
+	private final List<String> recentColors = new ArrayList<>(MAX_RECENT);
+
+	// ---- Undo / redo ---------------------------------------------------------
+
+	/** How many history entries are kept. */
+	private static final int MAX_HISTORY = 20;
+
+	/** Snapshots of the style taken <em>before</em> each edit, newest last. */
+	private final Deque<ServerStyle> undoStack = new ArrayDeque<>(MAX_HISTORY);
+
+	/** Snapshots undone by the user, newest last, cleared by any fresh edit. */
+	private final Deque<ServerStyle> redoStack = new ArrayDeque<>(MAX_HISTORY);
+
+	/** True while undo/redo is restoring, so the restore does not record itself. */
+	private boolean restoring;
+
+	/**
+	 * The style as it looked after the last completed edit.
+	 *
+	 * <p>Undo needs the state <em>before</em> a change, but some changes arrive
+	 * from outside this class (a preset applied by the shelf). Keeping a rolling
+	 * snapshot means history can be recorded at any point without every caller
+	 * having to remember to capture the old value first.</p>
+	 */
+	private ServerStyle lastSnapshot;
+
+	/** Wall-clock time of the last commit, used to coalesce drag gestures. */
+	private long lastCommitMillis;
+
 	public StyleEditorPanel(ServerStyle style, Font font, Anchor anchor) {
 		super(0, 0, WIDTH, HEIGHT, Component.literal("ServerStyler"));
 		this.style = style;
@@ -163,6 +235,89 @@ public final class StyleEditorPanel extends AbstractWidget {
 		// Backdrop + labels only - the panel must never capture input itself.
 		this.active = false;
 		this.visible = false;
+		applyMode(MODE_FULL);
+		// Baseline for the first undo step: the style as it was when the screen
+		// opened, so the very first edit can be reverted.
+		this.lastSnapshot = style.copy();
+	}
+
+	/**
+	 * Switches between the full, compact and tiny geometries.
+	 *
+	 * <p>Compact mode exists for GUI scale 3+: the whole screen is then only about
+	 * 640&times;360 GUI pixels, so a 254 px panel would leave no room for the preset
+	 * column and would cover the server form. Tiny mode is the last resort for a
+	 * small window at GUI scale 3 (e.g. 1366&times;768 &rarr; 455&times;256 GUI
+	 * pixels), where even the compact panel plus the preset column would not fit.</p>
+	 */
+	private void applyMode(int mode) {
+		this.mode = mode;
+		this.compact = mode != MODE_FULL;
+		if (mode == MODE_TINY) {
+			this.height = TINY_HEIGHT;
+			this.rowH = 10;
+			this.pitch = 11;
+			this.headerH = 11;
+			this.previewY = 11;
+			this.previewH = 10;
+			this.colourLabelY = 23;
+			this.barY = 34;
+			this.barH = 8;
+			this.hueY = 47;
+			this.alphaY = 58;
+			this.hexY = 69;
+			this.styleLabelY = 80;
+			this.modeY = 89;
+			this.formatY = 100;
+			this.layoutLabelY = 111;
+			this.alignY = 120;
+		} else if (mode == MODE_COMPACT) {
+			this.height = COMPACT_HEIGHT;
+			this.rowH = 11;
+			this.pitch = 13;
+			this.headerH = 12;
+			this.previewY = 13;
+			this.previewH = 12;
+			this.colourLabelY = 28;
+			this.barY = 41;
+			this.barH = 9;
+			this.hueY = 56;
+			this.alphaY = 69;
+			this.hexY = 82;
+			this.styleLabelY = 95;
+			this.modeY = 105;
+			this.formatY = 118;
+			this.layoutLabelY = 131;
+			this.alignY = 141;
+		} else {
+			this.height = HEIGHT;
+			this.rowH = 16;
+			this.pitch = 20;
+			this.headerH = 18;
+			this.previewY = 22;
+			this.previewH = 20;
+			this.colourLabelY = 48;
+			this.barY = 64;
+			this.barH = 14;
+			this.hueY = 90;
+			this.alphaY = 110;
+			this.hexY = 130;
+			this.styleLabelY = 156;
+			this.modeY = 172;
+			this.formatY = 192;
+			this.layoutLabelY = 218;
+			this.alignY = 234;
+		}
+	}
+
+	/** Height of the panel in its current mode. */
+	public int height() {
+		return this.height;
+	}
+
+	/** True when the panel is currently drawn in its compact geometry. */
+	public boolean isCompact() {
+		return this.compact;
 	}
 
 	/**
@@ -175,6 +330,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 		createColourControls();
 		createStyleControls();
 		createLayoutControls();
+		createHistoryControls();
 		syncFromStyle();
 		relayout();
 	}
@@ -204,18 +360,78 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * Recomputes the panel origin from the live anchor and lays out the children.
 	 * Safe to call every frame. Until the window is sized it keeps the panel hidden
 	 * so it can never be drawn at a bogus {@code (0, 0)} origin.
+	 *
+	 * <p>The panel also picks its geometry here: the full 254 px layout is used
+	 * whenever the preset column can still be placed next to or under it, and the
+	 * compact 180 px layout otherwise. That is what makes the whole editor usable
+	 * at GUI scale 3, where the screen is only ~640&times;360 GUI pixels.</p>
 	 */
 	public void relayout() {
 		int screenWidth = this.anchor.screenWidth();
 		int screenHeight = this.anchor.screenHeight();
 		int fieldRight = this.anchor.fieldRight();
-		this.dimsValid = screenWidth > WIDTH && screenHeight > HEIGHT && fieldRight > 0;
-		if (this.dimsValid) {
-			layout(panelX(this.anchor.fieldLeft(), fieldRight, screenWidth),
-					panelY(this.anchor.fieldTop(), screenHeight));
-		} else {
+		if (screenWidth <= WIDTH || screenHeight <= TINY_HEIGHT || fieldRight <= 0) {
+			this.dimsValid = false;
 			applyVisibility();
+			return;
 		}
+
+		// Pick the roomiest geometry that still leaves a home for the preset
+		// column. Tiny is used unconditionally as the last resort so the editor
+		// itself is always reachable, even on a small window at GUI scale 3.
+		int chosen = MODE_TINY;
+		for (int candidate = MODE_FULL; candidate <= MODE_COMPACT; candidate++) {
+			if (modeFits(candidate, screenWidth, screenHeight)) {
+				chosen = candidate;
+				break;
+			}
+		}
+		applyMode(chosen);
+		this.dimsValid = true;
+
+		int x = panelX(this.anchor.fieldLeft(), fieldRight, screenWidth);
+		int y = panelY(this.anchor.fieldTop(), screenHeight, this.height);
+
+		// The preset column has to fit underneath. If the editor is sitting too
+		// low for that, lift it to the top margin: at GUI scale 3 the screen is
+		// only ~360 GUI pixels tall, and a column that silently vanishes is worse
+		// than an editor that is not top-aligned with the name field.
+		if (this.compact
+				&& y + this.height + GAP + PresetPanel.TINY_HEIGHT > screenHeight - MARGIN) {
+			y = MARGIN;
+		}
+
+		layout(x, y);
+	}
+
+	/**
+	 * True when the editor in {@code mode} still leaves room for the preset column,
+	 * either to its right or below it.
+	 */
+	private boolean modeFits(int mode, int screenWidth, int screenHeight) {
+		int h = heightForMode(mode);
+		int x = panelX(this.anchor.fieldLeft(), this.anchor.fieldRight(), screenWidth);
+		int y = panelY(this.anchor.fieldTop(), screenHeight, h);
+
+		// Right of the editor: the column only has to fit vertically, because
+		// tryPlaceRight() clamps its Y into the screen.
+		if (x + WIDTH + GAP + PresetPanel.WIDTH + MARGIN <= screenWidth
+				&& PresetPanel.COMPACT_HEIGHT + MARGIN * 2 <= screenHeight) {
+			return true;
+		}
+		// Below the editor.
+		return y + h + GAP + PresetPanel.COMPACT_HEIGHT + MARGIN <= screenHeight;
+	}
+
+	/** Height the editor would have in {@code mode}, without switching to it. */
+	private static int heightForMode(int mode) {
+		if (mode == MODE_TINY) {
+			return TINY_HEIGHT;
+		}
+		if (mode == MODE_COMPACT) {
+			return COMPACT_HEIGHT;
+		}
+		return HEIGHT;
 	}
 
 	/**
@@ -236,8 +452,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	/** Y of the panel: top-aligned with the name field, kept on screen. */
-	public static int panelY(int fieldTop, int screenHeight) {
-		return clamp(fieldTop, MARGIN, screenHeight - HEIGHT - MARGIN);
+	public static int panelY(int fieldTop, int screenHeight, int panelHeight) {
+		return clamp(fieldTop, MARGIN, screenHeight - panelHeight - MARGIN);
 	}
 
 	/** X of the trigger button: immediately right of the name field. */
@@ -266,8 +482,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 			if (this.updating) {
 				return;
 			}
-			this.modified = true;
 			this.style.setColor(this.activeStop, ColorUtils.toHex(applyHue(this.activeStop, hue)));
+			commit();
 			syncDerivedFromColor(false);
 		});
 		this.widgetSink.accept(this.hueSlider);
@@ -277,8 +493,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 			if (this.updating) {
 				return;
 			}
-			this.modified = true;
 			this.style.setOpacity((float) alpha);
+			commit();
 		});
 		this.widgetSink.accept(this.alphaSlider);
 
@@ -290,25 +506,23 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	private void createStyleControls() {
-		this.modeButton = Button.builder(Component.literal("Mode"), b -> {
-			this.modified = true;
-			toggleMode();
-		}).bounds(0, 0, INNER, ROW_H).build();
+		this.modeButton = Button.builder(Component.literal("Mode"), b -> toggleMode())
+				.bounds(0, 0, INNER, ROW_H).build();
 		this.modeButton.setTooltip(Tooltip.create(
 				Component.literal("Solid colour or multi-stop gradient")));
 		this.widgetSink.accept(this.modeButton);
 
 		this.boldButton = Button.builder(Component.literal("B"), b -> {
-			this.modified = true;
 			this.style.setBold(!this.style.isBold());
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
 		this.boldButton.setTooltip(Tooltip.create(Component.literal("Bold")));
 		this.widgetSink.accept(this.boldButton);
 
 		this.italicButton = Button.builder(Component.literal("I"), b -> {
-			this.modified = true;
 			this.style.setItalic(!this.style.isItalic());
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
 		this.italicButton.setTooltip(Tooltip.create(Component.literal("Italic")));
@@ -316,8 +530,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 		this.miniCapsButton = Button.builder(
 				Component.literal(TextStylingEngine.toMiniCaps("Aa")), b -> {
-					this.modified = true;
 					this.style.setMiniCaps(!this.style.isMiniCaps());
+					commit();
 					refreshLabels();
 				}).bounds(0, 0, INNER - THIRD_W * 2 - 6, ROW_H).build();
 		this.miniCapsButton.setTooltip(Tooltip.create(Component.literal(
@@ -328,8 +542,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 		// On/off switch lives in the header: it is the most important toggle and
 		// deserves permanent prominence rather than a slot in a list.
 		this.enabledButton = Button.builder(Component.literal("On"), b -> {
-			this.modified = true;
 			this.style.setEnabled(!this.style.isEnabled());
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, 34, 12).build();
 		this.enabledButton.setTooltip(Tooltip.create(Component.literal(
@@ -338,7 +552,6 @@ public final class StyleEditorPanel extends AbstractWidget {
 		this.widgetSink.accept(this.enabledButton);
 
 		this.addStopButton = Button.builder(Component.literal("+"), b -> {
-			this.modified = true;
 			// Remember the spacing before the insert so the newly added stop can be
 			// identified afterwards: the new one is the index whose position is not
 			// present in the old list. New stops are inserted into the widest gap, not
@@ -347,13 +560,13 @@ public final class StyleEditorPanel extends AbstractWidget {
 			this.style.setMode(ServerStyle.MODE_GRADIENT);
 			this.style.addGradientStop();
 			this.activeStop = findInsertedStop(before);
+			commit();
 			syncFromStyle();
 		}).bounds(0, 0, 13, 11).build();
 		this.addStopButton.setTooltip(Tooltip.create(Component.literal("Add gradient stop")));
 		this.widgetSink.accept(this.addStopButton);
 
 		this.removeStopButton = Button.builder(Component.literal("-"), b -> {
-			this.modified = true;
 			// Remove the currently selected stop when it is removable, otherwise the
 			// last interior one - so the button always does something predictable.
 			int target = this.activeStop;
@@ -362,6 +575,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 			}
 			this.style.removeGradientStopAt(target);
 			this.activeStop = Math.max(0, Math.min(this.activeStop, this.style.gradientStopCount() - 1));
+			commit();
 			syncFromStyle();
 		}).bounds(0, 0, 13, 11).build();
 		this.removeStopButton.setTooltip(Tooltip.create(Component.literal("Remove selected gradient stop")));
@@ -397,28 +611,54 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 	private void createLayoutControls() {
 		this.alignLeftButton = Button.builder(Component.literal("L"), b -> {
-			this.modified = true;
 			this.style.setAlignment(ServerStyle.ALIGN_LEFT);
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
 		this.alignLeftButton.setTooltip(Tooltip.create(Component.literal("Align left")));
 		this.widgetSink.accept(this.alignLeftButton);
 
 		this.alignCenterButton = Button.builder(Component.literal("C"), b -> {
-			this.modified = true;
 			this.style.setAlignment(ServerStyle.ALIGN_CENTER);
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
 		this.alignCenterButton.setTooltip(Tooltip.create(Component.literal("Align center")));
 		this.widgetSink.accept(this.alignCenterButton);
 
 		this.alignRightButton = Button.builder(Component.literal("R"), b -> {
-			this.modified = true;
 			this.style.setAlignment(ServerStyle.ALIGN_RIGHT);
+			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
 		this.alignRightButton.setTooltip(Tooltip.create(Component.literal("Align right")));
 		this.widgetSink.accept(this.alignRightButton);
+	}
+
+	/**
+	 * Undo, redo and reset.
+	 *
+	 * <p>They live in the STYLE label row, right-aligned, because the header is
+	 * already occupied by the on/off switch and the colour swatch. Keeping them
+	 * out of the header also means they stay reachable in every layout tier.</p>
+	 */
+	private void createHistoryControls() {
+		this.undoButton = Button.builder(Component.literal("<"), b -> undo())
+				.bounds(0, 0, 13, 11).build();
+		this.undoButton.setTooltip(Tooltip.create(Component.literal("Undo the last change")));
+		this.widgetSink.accept(this.undoButton);
+
+		this.redoButton = Button.builder(Component.literal(">"), b -> redo())
+				.bounds(0, 0, 13, 11).build();
+		this.redoButton.setTooltip(Tooltip.create(Component.literal("Redo the change you undid")));
+		this.widgetSink.accept(this.redoButton);
+
+		this.resetButton = Button.builder(Component.literal("Reset"), b -> resetStyle())
+				.bounds(0, 0, 34, 11).build();
+		this.resetButton.setTooltip(Tooltip.create(Component.literal(
+				"Clear the style back to the default white, left-aligned name.\n"
+						+ "Undo brings it back.")));
+		this.widgetSink.accept(this.resetButton);
 	}
 
 	// ------------------------------------------------------------------
@@ -437,6 +677,154 @@ public final class StyleEditorPanel extends AbstractWidget {
 	/** True once the user actually changed something (decides whether to persist). */
 	public boolean isModified() {
 		return this.modified;
+	}
+
+	/**
+	 * Flags the working style as edited.
+	 *
+	 * <p>Used by the preset shelf: applying a preset replaces the style wholesale,
+	 * which is an edit the user made, so the host screen must persist it on Done.</p>
+	 */
+	public void markModified() {
+		this.modified = true;
+	}
+
+	/**
+	 * Called by the preset shelf after it has merged a preset into the working
+	 * style.
+	 *
+	 * <p>Records the pre-preset state on the undo stack, then re-syncs every
+	 * widget. Without this an applied preset would be invisible to undo, which is
+	 * exactly the case where a mis-click is most costly.</p>
+	 */
+	public void onStyleReplaced() {
+		commit();
+		syncFromStyle();
+	}
+
+	// ------------------------------------------------------------------
+	// Undo / redo / reset
+	// ------------------------------------------------------------------
+
+	/**
+	 * Records the state that existed <em>before</em> the change just made.
+	 *
+	 * <p>Called after every mutation. {@link #lastSnapshot} always holds the style
+	 * as it was after the previous commit, so pushing it here captures exactly one
+	 * undo step per user action, regardless of how many fields that action
+	 * touched.</p>
+	 */
+	private void commit() {
+		if (this.restoring) {
+			return;
+		}
+		if (this.lastSnapshot != null) {
+			this.undoStack.push(this.lastSnapshot);
+			while (this.undoStack.size() > MAX_HISTORY) {
+				this.undoStack.removeLast();
+			}
+		}
+		this.redoStack.clear();
+		this.lastSnapshot = this.style.copy();
+		this.modified = true;
+		refreshHistoryButtons();
+	}
+
+	/** Restores the previous snapshot, if any. */
+	private void undo() {
+		if (this.undoStack.isEmpty()) {
+			return;
+		}
+		this.redoStack.push(this.style.copy());
+		while (this.redoStack.size() > MAX_HISTORY) {
+			this.redoStack.removeLast();
+		}
+		ServerStyle previous = this.undoStack.pop();
+		restore(previous);
+	}
+
+	/** Re-applies the snapshot most recently undone. */
+	private void redo() {
+		if (this.redoStack.isEmpty()) {
+			return;
+		}
+		this.undoStack.push(this.style.copy());
+		while (this.undoStack.size() > MAX_HISTORY) {
+			this.undoStack.removeLast();
+		}
+		ServerStyle next = this.redoStack.pop();
+		restore(next);
+	}
+
+	/**
+	 * Merges a snapshot into the live style without recording history.
+	 *
+	 * <p>{@code copyFrom} is used rather than replacing the reference: the host
+	 * screen persists this exact instance.</p>
+	 */
+	private void restore(ServerStyle snapshot) {
+		this.restoring = true;
+		try {
+			this.style.copyFrom(snapshot);
+			this.lastSnapshot = this.style.copy();
+			this.activeStop = Math.max(0, Math.min(this.activeStop, activeStopCount() - 1));
+			this.modified = true;
+			syncFromStyle();
+		} finally {
+			this.restoring = false;
+		}
+		refreshHistoryButtons();
+	}
+
+	/** Clears the style back to a fresh default, as one undoable step. */
+	private void resetStyle() {
+		this.style.copyFrom(new ServerStyle());
+		this.activeStop = 0;
+		commit();
+		syncFromStyle();
+	}
+
+	private void refreshHistoryButtons() {
+		if (this.undoButton != null) {
+			this.undoButton.active = this.visible && !this.undoStack.isEmpty();
+		}
+		if (this.redoButton != null) {
+			this.redoButton.active = this.visible && !this.redoStack.isEmpty();
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Recent colours
+	// ------------------------------------------------------------------
+
+	/**
+	 * Remembers a colour the user just committed, most recent first.
+	 *
+	 * <p>Duplicates are moved to the front rather than added again, so the palette
+	 * stays a short list of distinct colours instead of filling with repeats.</p>
+	 */
+	private void rememberColor(String hex) {
+		if (hex == null || hex.isEmpty()) {
+			return;
+		}
+		String clean = ColorUtils.sanitiseHex(hex);
+		this.recentColors.remove(clean);
+		this.recentColors.add(0, clean);
+		while (this.recentColors.size() > MAX_RECENT) {
+			this.recentColors.remove(this.recentColors.size() - 1);
+		}
+	}
+
+	/** Applies a colour from the recent palette to the selected stop. */
+	private void applyRecentColor(String hex) {
+		this.style.setColor(this.activeStop, hex);
+		commit();
+		syncFromStyle();
+	}
+
+	/** Number of swatches currently in the recent palette. */
+	private int recentColorCount() {
+		return this.recentColors.size();
 	}
 
 	public void setVisible(boolean visible) {
@@ -459,31 +847,40 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * stop) made the panel grow taller than the screen at GUI scale 4.</p>
 	 */
 	public void layout(int originX, int originY) {
-		place(this, originX, originY, WIDTH, HEIGHT);
+		place(this, originX, originY, WIDTH, this.height);
 
 		int col = originX + PAD;
 
-		place(this.hueSlider, col, originY + HUE_Y, INNER, ROW_H);
-		place(this.alphaSlider, col, originY + ALPHA_Y, INNER, ROW_H);
-		place(this.hexBox, col, originY + HEX_Y, INNER, ROW_H);
+		place(this.hueSlider, col, originY + this.hueY, INNER, this.rowH);
+		place(this.alphaSlider, col, originY + this.alphaY, INNER, this.rowH);
+		place(this.hexBox, col, originY + this.hexY, HEX_W, this.rowH);
 
-		place(this.modeButton, col, originY + MODE_Y, INNER, ROW_H);
-		place(this.boldButton, col, originY + FORMAT_Y, THIRD_W, ROW_H);
-		place(this.italicButton, col + THIRD_W + 3, originY + FORMAT_Y, THIRD_W, ROW_H);
-		place(this.miniCapsButton, col + (THIRD_W + 3) * 2, originY + FORMAT_Y,
-				INNER - THIRD_W * 2 - 6, ROW_H);
+		place(this.modeButton, col, originY + this.modeY, INNER, this.rowH);
+		place(this.boldButton, col, originY + this.formatY, THIRD_W, this.rowH);
+		place(this.italicButton, col + THIRD_W + 3, originY + this.formatY, THIRD_W, this.rowH);
+		place(this.miniCapsButton, col + (THIRD_W + 3) * 2, originY + this.formatY,
+				INNER - THIRD_W * 2 - 6, this.rowH);
 
-		place(this.alignLeftButton, col, originY + ALIGN_Y, THIRD_W, ROW_H);
-		place(this.alignCenterButton, col + THIRD_W + 3, originY + ALIGN_Y, THIRD_W, ROW_H);
-		place(this.alignRightButton, col + (THIRD_W + 3) * 2, originY + ALIGN_Y,
-				INNER - THIRD_W * 2 - 6, ROW_H);
+		place(this.alignLeftButton, col, originY + this.alignY, THIRD_W, this.rowH);
+		place(this.alignCenterButton, col + THIRD_W + 3, originY + this.alignY, THIRD_W, this.rowH);
+		place(this.alignRightButton, col + (THIRD_W + 3) * 2, originY + this.alignY,
+				INNER - THIRD_W * 2 - 6, this.rowH);
 
 		// Header switch, top-right.
-		place(this.enabledButton, originX + WIDTH - PAD - 34, originY + 3, 34, 12);
+		int switchH = this.mode == MODE_FULL ? 12 : (this.mode == MODE_TINY ? 9 : 10);
+		place(this.enabledButton, originX + WIDTH - PAD - 34, originY + 2, 34, switchH);
 
 		// Stop add/remove, right-aligned in the COLOUR label row.
-		place(this.addStopButton, originX + WIDTH - PAD - 28, originY + COLOUR_LABEL_Y - 1, 13, 11);
-		place(this.removeStopButton, originX + WIDTH - PAD - 13, originY + COLOUR_LABEL_Y - 1, 13, 11);
+		int stopH = this.mode == MODE_FULL ? 11 : (this.mode == MODE_TINY ? 8 : 9);
+		place(this.addStopButton, originX + WIDTH - PAD - 28, originY + this.colourLabelY - 1, 13, stopH);
+		place(this.removeStopButton, originX + WIDTH - PAD - 13, originY + this.colourLabelY - 1, 13, stopH);
+
+		// Undo / redo / reset, right-aligned in the STYLE label row.
+		int histH = this.mode == MODE_FULL ? 11 : (this.mode == MODE_TINY ? 8 : 9);
+		int histY = originY + this.styleLabelY - 1;
+		place(this.resetButton, originX + WIDTH - PAD - 34, histY, 34, histH);
+		place(this.redoButton, originX + WIDTH - PAD - 34 - 4 - 13, histY, 13, histH);
+		place(this.undoButton, originX + WIDTH - PAD - 34 - 4 - 13 - 2 - 13, histY, 13, histH);
 
 		applyVisibility();
 	}
@@ -528,6 +925,10 @@ public final class StyleEditorPanel extends AbstractWidget {
 		show(this.alignRightButton, shown);
 		show(this.addStopButton, shown && gradient && stops < MAX_STOPS);
 		show(this.removeStopButton, shown && gradient && stops > 2);
+		show(this.undoButton, shown);
+		show(this.redoButton, shown);
+		show(this.resetButton, shown);
+		refreshHistoryButtons();
 
 		// The stop chips and section labels are painted by this widget, so they need
 		// the panel itself visible - already handled above.
@@ -625,6 +1026,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 	private void toggleMode() {
 		this.style.setMode(this.style.isGradient() ? ServerStyle.MODE_SOLID : ServerStyle.MODE_GRADIENT);
 		this.activeStop = 0;
+		commit();
 		syncFromStyle();
 	}
 
@@ -645,7 +1047,6 @@ public final class StyleEditorPanel extends AbstractWidget {
 			}
 		}
 		String hex = ColorUtils.sanitiseHex(raw);
-		this.modified = true;
 		boolean was = this.updating;
 		this.updating = true;
 		try {
@@ -655,6 +1056,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 		} finally {
 			this.updating = was;
 		}
+		commit();
+		rememberColor(hex);
 	}
 
 	/** Number of stops currently in play (1 when solid). */
@@ -679,12 +1082,13 @@ public final class StyleEditorPanel extends AbstractWidget {
 		int left = getX();
 		int top = getY();
 		int right = left + WIDTH;
-		int bottom = top + HEIGHT;
+		int bottom = top + this.height;
 
 		drawBackdrop(graphics, left, top, right, bottom);
 		drawHeader(graphics, left, top, right);
 		drawPreview(graphics, left, top);
 		drawColourSection(graphics, left, top);
+		drawRecentColors(graphics);
 		drawSectionLabels(graphics, left, top);
 	}
 
@@ -695,12 +1099,12 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 */
 	private void drawBackdrop(GuiGraphicsExtractor graphics, int left, int top, int right, int bottom) {
 		graphics.fill(left, top, right, bottom, 0xF0101010);
-		graphics.fill(left, top, right, top + HEADER_H, 0xFF2A2A2A);
-		graphics.fill(left, top + HEADER_H, right, top + HEADER_H + 1, 0xFF000000);
+		graphics.fill(left, top, right, top + this.headerH, 0xFF2A2A2A);
+		graphics.fill(left, top + this.headerH, right, top + this.headerH + 1, 0xFF000000);
 
 		// Outer border: a light inner line so the panel edge catches the eye on any
 		// background, then a dark line beneath for depth.
-		graphics.outline(left, top, WIDTH, HEIGHT, 0xFF000000);
+		graphics.outline(left, top, WIDTH, this.height, 0xFF000000);
 		graphics.fill(left + 1, top + 1, right - 1, top + 2, 0xFF5A5A5A);
 	}
 
@@ -718,21 +1122,21 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 */
 	private void drawPreview(GuiGraphicsExtractor graphics, int left, int top) {
 		int x = left + PAD;
-		int y = top + PREVIEW_Y;
+		int y = top + this.previewY;
 		int w = INNER;
 
-		graphics.fill(x, y, x + w, y + PREVIEW_H, TextStylingEngine.LIST_BACKGROUND);
+		graphics.fill(x, y, x + w, y + this.previewH, TextStylingEngine.LIST_BACKGROUND);
 		graphics.fill(x, y, x + w, y + 1, 0x40FFFFFF);
 
 		Component component = TextStylingEngine.buildComponent(previewText(), this.style);
 		int textWidth = this.font.width(component);
-		int textY = y + (PREVIEW_H - 8) / 2;
+		int textY = y + (this.previewH - 8) / 2;
 		if (textWidth <= w - 6) {
 			int textX = x + TextStylingEngine.alignedPadding(w, textWidth, this.style.getAlignment());
 			graphics.text(this.font, component, textX, textY, 0xFFFFFFFF, false);
 		} else {
 			// Too wide for the strip: clip rather than letting it bleed into the frame.
-			graphics.enableScissor(x + 1, y + 1, x + w - 1, y + PREVIEW_H - 1);
+			graphics.enableScissor(x + 1, y + 1, x + w - 1, y + this.previewH - 1);
 			graphics.text(this.font, component, x + 3, textY, 0xFFFFFFFF, false);
 			graphics.disableScissor();
 		}
@@ -758,8 +1162,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 	private void drawColourSection(GuiGraphicsExtractor graphics, int left, int top) {
 		int barLeft = left + PAD;
 		int barRight = left + WIDTH - PAD;
-		int barTop = top + BAR_Y;
-		int barBottom = barTop + BAR_H;
+		int barTop = top + this.barY;
+		int barBottom = barTop + this.barH;
 
 		drawGradientBar(graphics, barLeft, barTop, barRight, barBottom);
 
@@ -803,7 +1207,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 		boolean selected = index == this.activeStop;
 
 		int top = barTop - HANDLE_HALF;
-		int bottom = barTop + BAR_H + HANDLE_HALF;
+		int bottom = barTop + this.barH + HANDLE_HALF;
 		int left = x - HANDLE_HALF;
 		int right = x + HANDLE_HALF;
 
@@ -837,9 +1241,78 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 	private void drawSectionLabels(GuiGraphicsExtractor graphics, int left, int top) {
 		int labelColor = 0xFF9A9A9A;
-		sectionHeader(graphics, left + PAD, top + COLOUR_LABEL_Y + 3, "COLOUR", labelColor);
-		sectionHeader(graphics, left + PAD, top + STYLE_LABEL_Y, "STYLE", labelColor);
-		sectionHeader(graphics, left + PAD, top + LAYOUT_LABEL_Y, "LAYOUT", labelColor);
+		sectionHeader(graphics, left + PAD, top + this.colourLabelY + 3, "COLOUR", labelColor);
+		sectionHeader(graphics, left + PAD, top + this.styleLabelY, "STYLE", labelColor);
+		sectionHeader(graphics, left + PAD, top + this.layoutLabelY, "LAYOUT", labelColor);
+	}
+
+	// ------------------------------------------------------------------
+	// Recent colours
+	// ------------------------------------------------------------------
+
+	/** Left edge of the swatch strip, in screen coordinates. */
+	private int recentStripX() {
+		return getX() + PAD + HEX_W + RECENT_GAP;
+	}
+
+	/** Top edge of the swatch strip, in screen coordinates. */
+	private int recentStripY() {
+		return getY() + this.hexY;
+	}
+
+	/**
+	 * Draws the remembered colours as a row of small squares beside the hex field.
+	 *
+	 * <p>They sit in the same row as the hex box rather than in their own row: the
+	 * gap between the hex field and the STYLE label is only a few pixels in the
+	 * compact and tiny tiers, so a dedicated row would not fit at GUI scale 3.</p>
+	 */
+	private void drawRecentColors(GuiGraphicsExtractor graphics) {
+		int x = recentStripX();
+		int y = recentStripY();
+		int h = this.rowH;
+		for (int i = 0; i < MAX_RECENT; i++) {
+			int sx = x + i * (RECENT_SWATCH_W + RECENT_SWATCH_GAP);
+			if (i < this.recentColors.size()) {
+				int rgb = ColorUtils.parseHex(this.recentColors.get(i)) & 0xFFFFFF;
+				graphics.fill(sx, y, sx + RECENT_SWATCH_W, y + h, 0xFF000000 | rgb);
+				graphics.fill(sx, y, sx + RECENT_SWATCH_W, y + 1, 0x60FFFFFF);
+			} else {
+				// Empty slot: a faint well so the strip keeps its shape.
+				graphics.fill(sx, y, sx + RECENT_SWATCH_W, y + h, 0x30FFFFFF);
+			}
+		}
+	}
+
+	/**
+	 * Maps a click to a recent-colour slot.
+	 *
+	 * @return the slot index, or {@code -1} when the click missed the strip or the
+	 *         slot is empty
+	 */
+	private int recentSwatchAt(double mouseX, double mouseY) {
+		if (this.recentColors.isEmpty()) {
+			return -1;
+		}
+		int x = recentStripX();
+		int y = recentStripY();
+		if (mouseY < y || mouseY >= y + this.rowH) {
+			return -1;
+		}
+		int offset = (int) (mouseX - x);
+		if (offset < 0) {
+			return -1;
+		}
+		int pitch = RECENT_SWATCH_W + RECENT_SWATCH_GAP;
+		int slot = offset / pitch;
+		if (slot < 0 || slot >= MAX_RECENT || slot >= this.recentColors.size()) {
+			return -1;
+		}
+		// Reject the 1 px gap between two swatches.
+		if (offset % pitch >= RECENT_SWATCH_W) {
+			return -1;
+		}
+		return slot;
 	}
 
 	private void sectionHeader(GuiGraphicsExtractor graphics, int x, int y, String label, int color) {
@@ -891,7 +1364,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 */
 	@Override
 	public boolean isMouseOver(double mouseX, double mouseY) {
-		return this.visible && this.requestedVisible && stopHandleAt(mouseX, mouseY) >= 0;
+		return this.visible && this.requestedVisible
+				&& (stopHandleAt(mouseX, mouseY) >= 0 || recentSwatchAt(mouseX, mouseY) >= 0);
 	}
 
 	/** Bar bounds in screen space, as {@code {left, right}}. */
@@ -913,8 +1387,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 		if (stops <= 0) {
 			return -1;
 		}
-		int top = getY() + BAR_Y - HANDLE_HALF - 2;
-		int bottom = getY() + BAR_Y + BAR_H + HANDLE_HALF + 2;
+		int top = getY() + this.barY - HANDLE_HALF - 2;
+		int bottom = getY() + this.barY + this.barH + HANDLE_HALF + 2;
 		if (mouseY < top || mouseY >= bottom) {
 			return -1;
 		}
@@ -940,6 +1414,11 @@ public final class StyleEditorPanel extends AbstractWidget {
 		// isValidClickButton() is the version-correct vanilla helper.
 		if (!this.visible || !this.requestedVisible || !isValidClickButton(event.buttonInfo())) {
 			return false;
+		}
+		int swatch = recentSwatchAt(event.x(), event.y());
+		if (swatch >= 0) {
+			applyRecentColor(this.recentColors.get(swatch));
+			return true;
 		}
 		int index = stopHandleAt(event.x(), event.y());
 		if (index < 0) {
@@ -977,12 +1456,21 @@ public final class StyleEditorPanel extends AbstractWidget {
 		// The style may have clamped the position against its neighbours; mirror the
 		// clamped value back so a dragged handle never visually separates from its
 		// stored position.
+		//
+		// No commit() here: a drag fires dozens of times per second and would fill
+		// the whole undo history with intermediate positions. The single history
+		// entry for the gesture is pushed in mouseReleased().
 		this.modified = true;
 		return true;
 	}
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
+		// One undo entry per drag gesture: the snapshot pushed here is the style as
+		// it was before the handle started moving.
+		if (this.draggingStop >= 0) {
+			commit();
+		}
 		this.draggingStop = -1;
 		return false;
 	}
