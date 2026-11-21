@@ -5,12 +5,11 @@
 	"name": "ServerStyler",
 	"description": "Customise multiplayer server names with full RGB colours, multi-stop linear gradients, opacity (ARGB) and formatting flags, edited from the native Add/Edit Server screen and rendered live in the multiplayer list.",
 	"authors": [
-		"zelekdev",
-		"Deepseek (70% code)"
+		"zelekdev"
 	],
 	"contact": {
 		"sources": "https://github.com/zelekdev/ServerStyler",
-		"buy_me_a_coffee": "https://buymeacoffee.com/zelekdev"
+		"issues": "https://github.com/zelekdev/ServerStyler/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/serverstyler/icon.png",
@@ -37,5 +36,12 @@
 	},
 	"suggests": {
 		"modmenu": "*"
+	},
+	"custom": {
+		"modmenu": {
+			"links": {
+				"modmenu.buymeacoffee": "https://buymeacoffee.com/zelekdev"
+			}
+		}
 	}
 }

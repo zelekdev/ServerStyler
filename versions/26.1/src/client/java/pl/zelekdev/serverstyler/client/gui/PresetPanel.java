@@ -608,11 +608,24 @@ public final class PresetPanel extends AbstractWidget {
 	 * @return true when the column was placed and is now visible
 	 */
 	public boolean tryPlaceRight(int editorX, int editorY, int editorHeight) {
+		return tryPlaceRight(editorX, editorY, editorHeight, StyleEditorPanel.WIDTH);
+	}
+
+	/**
+	 * Tries to place the column to the <b>right</b> of the editor panel, using the
+	 * editor's real width.
+	 *
+	 * <p>The editor is wider in its two-column studio tier, so the column must be
+	 * offset by the width the editor actually has rather than by a constant.</p>
+	 *
+	 * @return true when the column was placed and is now visible
+	 */
+	public boolean tryPlaceRight(int editorX, int editorY, int editorHeight, int editorWidth) {
 		int screenWidth = this.anchor.screenWidth();
 		int screenHeight = this.anchor.screenHeight();
 		int margin = StyleEditorPanel.MARGIN;
 
-		int x = editorX + StyleEditorPanel.WIDTH + GAP;
+		int x = editorX + editorWidth + GAP;
 		if (x + WIDTH > screenWidth - margin) {
 			return false;
 		}

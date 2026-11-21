@@ -231,7 +231,7 @@ public abstract class EditServerScreenMixin {
 		// that used to cover the name field. If neither spot fits it hides itself.
 		if (this.serverstyler$presets != null) {
 			PresetPanel presets = this.serverstyler$presets;
-			if (!presets.tryPlaceRight(panel.getX(), panel.getY(), panel.height())) {
+			if (!presets.tryPlaceRight(panel.getX(), panel.getY(), panel.height(), panel.width())) {
 				// StyleEditorPanel.relayout() already lifts the editor to the top
 				// margin in compact mode when the column would not fit below it, so
 				// this only has to decide between stacking and hiding.
