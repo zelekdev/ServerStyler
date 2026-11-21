@@ -98,10 +98,20 @@ public class ServerStylerConfigScreen extends Screen {
 				centreX, centreY + HINT_OFFSET + HINT_LINE_HEIGHT, 0xFFA0A0A0);
 	}
 
+	/**
+	 * Returns to the screen that opened this one.
+	 *
+	 * <p>{@code Minecraft.setScreen(Screen)} was removed in 26.2 (it moved to
+	 * {@code Gui.setScreen}), so calling it here would throw
+	 * {@code NoSuchMethodError} on 26.2 and 26.3 even though it still compiles
+	 * against 26.1. {@code setScreenAndShow} is the one entry point that exists
+	 * unchanged on 26.1, 26.2 and 26.3, which is exactly the range this jar
+	 * declares in {@code fabric.mod.json}.</p>
+	 */
 	@Override
 	public void onClose() {
 		if (this.minecraft != null) {
-			this.minecraft.setScreen(this.parent);
+			this.minecraft.setScreenAndShow(this.parent);
 		}
 	}
 }
