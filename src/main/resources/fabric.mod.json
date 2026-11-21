@@ -9,7 +9,8 @@
 		"Deepseek (70% code)"
 	],
 	"contact": {
-		"sources": "https://github.com/zelekdev/ServerStyler"
+		"sources": "https://github.com/zelekdev/ServerStyler",
+		"buy_me_a_coffee": "https://buymeacoffee.com/zelekdev"
 	},
 	"license": "MIT",
 	"icon": "assets/serverstyler/icon.png",

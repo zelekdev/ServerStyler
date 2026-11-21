@@ -66,7 +66,9 @@ public final class SchemaMigration {
 					SchemaMigration::oneToTwo),
 			new Migration(2, 3, "added miniCaps", SchemaMigration::twoToThree),
 			new Migration(3, 4, "added gradient stop positions", SchemaMigration::threeToFour),
-			new Migration(4, 5, "added the language choice", SchemaMigration::fourToFive));
+			new Migration(4, 5, "added the language choice", SchemaMigration::fourToFive),
+			new Migration(5, 6, "keyed styles by server id so one address can host several servers",
+					SchemaMigration::fiveToSix));
 
 	private SchemaMigration() {
 	}
@@ -239,6 +241,62 @@ public final class SchemaMigration {
 				pl.zelekdev.serverstyler.i18n.Lang.normalise(existing));
 	}
 
+	// ------------------------------------------------------------------
+	// v5 -> v6
+	// ------------------------------------------------------------------
+
+	/**
+	 * Re-keys the {@code servers} map from address to server id.
+	 *
+	 * <p>v6 keys styles by an automatically assigned id so two multiplayer entries
+	 * pointing at the same address can carry different styles. Every legacy
+	 * address-keyed entry becomes one <em>unnamed</em> identity
+	 * ({@code name == null}), which matches any display name on that address until
+	 * the server is edited and the binding becomes explicit. That reproduces the
+	 * old behaviour exactly: one style per address, applied to every entry using
+	 * it.</p>
+	 *
+	 * <p>Idempotent: a file that already has an {@code identities} object and
+	 * id-keyed styles is left untouched.</p>
+	 */
+	private static void fiveToSix(JsonObject root) {
+		JsonObject servers = ensureServers(root);
+		JsonObject identities = root.get("identities") instanceof JsonObject o
+				? o
+				: new JsonObject();
+
+		// Collect the legacy address keys first: the map is mutated below.
+		java.util.List<String> legacyKeys = new java.util.ArrayList<>();
+		for (Map.Entry<String, JsonElement> entry : servers.entrySet()) {
+			if (!ServerIdentity.isServerId(entry.getKey())) {
+				legacyKeys.add(entry.getKey());
+			}
+		}
+		if (legacyKeys.isEmpty()) {
+			root.add("identities", identities);
+			return;
+		}
+
+		java.util.Set<String> taken = new java.util.HashSet<>(identities.keySet());
+		for (String legacyKey : legacyKeys) {
+			JsonElement style = servers.get(legacyKey);
+			String address = ServerIdentity.normaliseAddress(legacyKey);
+			if (address.isEmpty() || !ServerStyleConfig.isPlausibleAddress(address)) {
+				// Unusable key: drop it rather than inventing an id for garbage.
+				servers.remove(legacyKey);
+				continue;
+			}
+			String id = ServerIdentity.generate(taken);
+			taken.add(id);
+			JsonObject binding = new JsonObject();
+			binding.addProperty("ip", address);
+			identities.add(id, binding);
+			servers.remove(legacyKey);
+			servers.add(id, style);
+		}
+		root.add("identities", identities);
+	}
+
 	/** Field order used when this build writes a style object. */
 	private static final List<String> STYLE_FIELD_ORDER = List.of(
 			"enabled", "mode", "colors", "positions", "opacity",
@@ -346,8 +404,9 @@ public final class SchemaMigration {
 		}
 		// Some v1 builds wrote the map at the root level without a wrapper.
 		root.remove("servers");
-		root.add("servers", new JsonObject());
-		return new JsonObject();
+		JsonObject fresh = new JsonObject();
+		root.add("servers", fresh);
+		return fresh;
 	}
 
 	private static String normaliseMode(JsonElement el) {

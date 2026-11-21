@@ -87,11 +87,15 @@ public final class ConfigManager {
 	 */
 	private static final long MIN_SAVE_INTERVAL_MS = 250L;
 
+	/** Hard cap on how many id-to-server bindings are kept in memory. */
+	public static final int MAX_IDENTITIES = 4096;
+
 	private final Path configDir;
 	private final Path configPath;
 	private final Gson gson;
 
 	private final Map<String, ServerStyle> styles = new LinkedHashMap<>();
+	private final Map<String, ServerIdentity> identities = new LinkedHashMap<>();
 	private final AtomicLong mutationCounter = new AtomicLong(0);
 	private final Executor ioExecutor = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "ServerStyler-Io");
@@ -338,9 +342,12 @@ public final class ConfigManager {
 	private void apply(ServerStyleConfig cfg) {
 		styles.clear();
 		styles.putAll(cfg.getServers());
+		identities.clear();
+		identities.putAll(cfg.getIdentities());
 		this.language = cfg.getLanguage();
 		mutationCounter.incrementAndGet();
-		LOGGER.info("Loaded {} custom server style(s).", styles.size());
+		LOGGER.info("Loaded {} custom server style(s) and {} server id(s).",
+				styles.size(), identities.size());
 	}
 
 	// ------------------------------------------------------------------
@@ -392,89 +399,229 @@ public final class ConfigManager {
 		return Map.copyOf(copy);
 	}
 
-	/** Returns the style for a normalised IP, or {@code null} if none/enabled false. */
-	public synchronized ServerStyle getEffective(String serverIp) {
-		ServerStyle s = styles.get(ServerStyleConfig.normaliseIp(serverIp));
+	/** Snapshot of every id-to-server binding. */
+	public synchronized Map<String, ServerIdentity> getIdentities() {
+		return Map.copyOf(new LinkedHashMap<>(identities));
+	}
+
+	// ------------------------------------------------------------------
+	// Server ids
+	// ------------------------------------------------------------------
+
+	/**
+	 * Read-only lookup of the id bound to {@code (ip, name)}, or {@code null}.
+	 *
+	 * <p>Never creates anything, so it is safe to call from a render pass. An
+	 * unnamed legacy binding matches any name on that address, which is what keeps
+	 * styles written before ids existed visible in the multiplayer list.</p>
+	 */
+	public synchronized String findId(String ip, String name) {
+		String address = ServerIdentity.normaliseAddress(ip);
+		if (address.isEmpty()) {
+			return null;
+		}
+		String wanted = ServerIdentity.normaliseName(name);
+		// 1. Exact binding.
+		for (ServerIdentity identity : identities.values()) {
+			if (identity.ip().equals(address)
+					&& identity.name() != null
+					&& identity.name().equals(wanted)) {
+				return identity.id();
+			}
+		}
+		// 2. Legacy address-only binding: adopt it for any name on that address.
+		for (ServerIdentity identity : identities.values()) {
+			if (identity.ip().equals(address) && identity.name() == null) {
+				return identity.id();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Returns the id bound to {@code (ip, name)}, creating one when needed.
+	 *
+	 * <p>Called from the editor screen only, never from a render pass: creating a
+	 * binding marks the store dirty and schedules a write.</p>
+	 *
+	 * @return the id, or {@code null} when the address is unusable
+	 */
+	public synchronized String resolveId(String ip, String name) {
+		String existing = findId(ip, name);
+		if (existing != null) {
+			// Promote a legacy address-only binding to an explicit one so the same
+			// address can host a second, differently styled server from now on.
+			ServerIdentity identity = identities.get(existing);
+			String wanted = ServerIdentity.normaliseName(name);
+			if (identity != null && identity.name() == null && wanted != null) {
+				identities.put(existing, new ServerIdentity(existing, identity.ip(), wanted));
+				markDirty();
+			}
+			return existing;
+		}
+		String address = ServerIdentity.normaliseAddress(ip);
+		if (address.isEmpty() || !ServerStyleConfig.isPlausibleAddress(address)) {
+			return null;
+		}
+		if (identities.size() >= MAX_IDENTITIES) {
+			LOGGER.warn("Refusing to create another server id: {} bindings already exist.",
+					identities.size());
+			return null;
+		}
+		String id = ServerIdentity.generate(identities.keySet());
+		identities.put(id, new ServerIdentity(id, address, ServerIdentity.normaliseName(name)));
+		markDirty();
+		LOGGER.info("Assigned server id {} to '{}'.", id, address);
+		return id;
+	}
+
+	/**
+	 * Rebinds {@code id} to a new address and/or name, keeping its style.
+	 *
+	 * <p>This is what makes "the user renamed the server address in the edit
+	 * screen" behave sanely: the styling follows the server instead of being
+	 * orphaned under the stale binding.</p>
+	 */
+	public synchronized void bindIdentity(String id, String ip, String name) {
+		if (id == null) {
+			return;
+		}
+		String address = ServerIdentity.normaliseAddress(ip);
+		if (address.isEmpty() || !ServerStyleConfig.isPlausibleAddress(address)) {
+			return;
+		}
+		ServerIdentity current = identities.get(id);
+		ServerIdentity updated =
+				new ServerIdentity(id, address, ServerIdentity.normaliseName(name));
+		if (updated.equals(current)) {
+			return;
+		}
+		identities.put(id, updated);
+		markDirty();
+	}
+
+	/** Drops a binding and its style together, so no orphan is left behind. */
+	public synchronized void removeIdentity(String id) {
+		if (id == null) {
+			return;
+		}
+		boolean changed = identities.remove(id) != null;
+		changed |= styles.remove(id) != null;
+		if (changed) {
+			markDirty();
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Style accessors (keyed by server id, with a legacy address fallback)
+	// ------------------------------------------------------------------
+
+	/**
+	 * Returns the style stored under {@code key} (a server id, or a legacy
+	 * address), or {@code null} if none/enabled false.
+	 */
+	public synchronized ServerStyle getEffective(String key) {
+		ServerStyle s = styles.get(ServerStyleConfig.normaliseKey(key));
 		return (s != null && s.isEnabled()) ? s : null;
 	}
 
 	/** Returns the raw style (even when disabled), or {@code null} if none exists. */
-	public synchronized ServerStyle getRaw(String serverIp) {
-		return styles.get(ServerStyleConfig.normaliseIp(serverIp));
+	public synchronized ServerStyle getRaw(String key) {
+		return styles.get(ServerStyleConfig.normaliseKey(key));
 	}
 
-	public synchronized boolean isCustomised(String serverIp) {
-		ServerStyle s = getEffective(serverIp);
-		return s != null;
+	/**
+	 * Resolves the effective style for a multiplayer entry.
+	 *
+	 * <p>Prefers the id bound to {@code (ip, name)}; falls back to a legacy
+	 * address-keyed entry so a config that has not been re-saved yet still renders
+	 * its styles.</p>
+	 */
+	public synchronized ServerStyle getEffectiveFor(String ip, String name) {
+		String id = findId(ip, name);
+		if (id != null) {
+			ServerStyle s = styles.get(id);
+			if (s != null) {
+				return s.isEnabled() ? s : null;
+			}
+		}
+		return getEffective(ip);
 	}
 
-	public synchronized ServerStyle getOrCreate(String serverIp) {
-		String key = ServerStyleConfig.normaliseIp(serverIp);
-		if (!isAcceptableKey(key)) {
+	/** Raw counterpart of {@link #getEffectiveFor}, ignoring the enabled flag. */
+	public synchronized ServerStyle getRawFor(String ip, String name) {
+		String id = findId(ip, name);
+		if (id != null) {
+			ServerStyle s = styles.get(id);
+			if (s != null) {
+				return s;
+			}
+		}
+		return getRaw(ip);
+	}
+
+	public synchronized boolean isCustomised(String ip, String name) {
+		return getEffectiveFor(ip, name) != null;
+	}
+
+	public synchronized ServerStyle getOrCreate(String key) {
+		String normalised = ServerStyleConfig.normaliseKey(key);
+		if (!isAcceptableKey(normalised)) {
 			// Never create an entry we would refuse to persist: an unstorable key would
 			// silently vanish on the next save.
-			ServerStyle throwaway = new ServerStyle();
-			return throwaway;
+			return new ServerStyle();
 		}
-		ServerStyle existing = styles.get(key);
+		ServerStyle existing = styles.get(normalised);
 		if (existing != null) {
 			return existing;
 		}
 		ServerStyle created = new ServerStyle();
-		styles.put(key, created);
+		styles.put(normalised, created);
 		markDirty();
 		return created;
 	}
 
 	/**
-	 * Stores {@code style} under the normalised {@code serverIp}.
+	 * Stores {@code style} under {@code key} (a server id, or a legacy address).
 	 *
 	 * <p>The value is defensively copied so the caller (the live GUI model) can keep
 	 * mutating its instance without corrupting the persisted state.</p>
 	 */
-	public synchronized void set(String serverIp, ServerStyle style) {
+	public synchronized void set(String key, ServerStyle style) {
 		if (style == null) {
 			return;
 		}
-		String key = ServerStyleConfig.normaliseIp(serverIp);
-		if (!isAcceptableKey(key)) {
+		String normalised = ServerStyleConfig.normaliseKey(key);
+		if (!isAcceptableKey(normalised)) {
 			return;
 		}
-		styles.put(key, style.copy());
+		styles.put(normalised, style.copy());
 		markDirty();
 	}
 
 	/**
-	 * Persists {@code style} under {@code newIp} while migrating away from
-	 * {@code oldIp}. This is what makes "the user renamed the server address in the
-	 * edit screen" behave sanely: the styling follows the server instead of being
-	 * orphaned under the stale key.
+	 * Persists {@code style} under the id bound to {@code (ip, name)}, creating the
+	 * binding when needed.
 	 *
-	 * @param oldIp the address the editor was opened with (may be {@code null}/equal)
-	 * @param newIp the address currently typed into the IP field
+	 * @return the id the style was stored under, or {@code null} when the address
+	 *         was unusable
 	 */
-	public synchronized void saveForServer(String oldIp, String newIp, ServerStyle style) {
+	public synchronized String saveForServer(String ip, String name, ServerStyle style) {
 		if (style == null) {
-			return;
+			return null;
 		}
-		String newKey = ServerStyleConfig.normaliseIp(newIp);
-		if (!isAcceptableKey(newKey)) {
+		String id = resolveId(ip, name);
+		if (id == null) {
 			LOGGER.warn("ServerStyler: cannot save a style without a valid server address.");
-			return;
+			return null;
 		}
-		String oldKey = ServerStyleConfig.normaliseIp(oldIp);
-
-		styles.put(newKey, style.copy());
-		if (!oldKey.isEmpty() && !oldKey.equals(newKey)) {
-			// IP was edited: drop the stale entry so we do not accumulate orphans.
-			styles.remove(oldKey);
-			LOGGER.info("ServerStyler: migrated style from '{}' to '{}'.", oldKey, newKey);
-		}
+		styles.put(id, style.copy());
 		markDirty();
+		return id;
 	}
 
-	public synchronized void remove(String serverIp) {
-		if (styles.remove(ServerStyleConfig.normaliseIp(serverIp)) != null) {
+	public synchronized void remove(String key) {
+		if (styles.remove(ServerStyleConfig.normaliseKey(key)) != null) {
 			markDirty();
 		}
 	}
@@ -486,11 +633,11 @@ public final class ConfigManager {
 
 	/**
 	 * A config key must survive a JSON round-trip and stay within the address
-	 * length budget. Delegates to {@link ServerStyleConfig#isPlausibleAddress} so
-	 * the same rules guard both the load path and the save path.
+	 * length budget. Delegates to {@link ServerStyleConfig#isPlausibleKey} so the
+	 * same rules guard both the load path and the save path.
 	 */
 	private static boolean isAcceptableKey(String key) {
-		return ServerStyleConfig.isPlausibleAddress(key);
+		return ServerStyleConfig.isPlausibleKey(key);
 	}
 
 	/** Monotonic revision used as a cheap dirty flag by caches. */
@@ -593,7 +740,7 @@ public final class ConfigManager {
 		for (Map.Entry<String, ServerStyle> e : styles.entrySet()) {
 			copy.put(e.getKey(), e.getValue().copy());
 		}
-		ServerStyleConfig snapshot = new ServerStyleConfig(copy);
+		ServerStyleConfig snapshot = new ServerStyleConfig(copy, identities);
 		// The language lives outside the style map, so it has to be carried over
 		// explicitly or every save would silently reset it to English.
 		snapshot.setLanguage(this.language);
@@ -655,7 +802,7 @@ public final class ConfigManager {
 	}
 
 	private ServerStyleConfig buildDefault() {
-		ServerStyleConfig cfg = new ServerStyleConfig(new LinkedHashMap<>());
+		ServerStyleConfig cfg = new ServerStyleConfig(new LinkedHashMap<>(), new LinkedHashMap<>());
 		cfg.setLanguage(this.language);
 		return cfg;
 	}

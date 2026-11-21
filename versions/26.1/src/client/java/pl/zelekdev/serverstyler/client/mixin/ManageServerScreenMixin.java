@@ -77,6 +77,17 @@ public abstract class ManageServerScreenMixin {
 	@Unique
 	private String serverstyler$originalIp;
 
+	/** The display name this screen was opened with, captured in {@code init}. */
+	@Unique
+	private String serverstyler$originalName;
+
+	/**
+	 * The server id this screen is editing. Resolved (and created when needed) in
+	 * {@code init}, so two entries sharing one address each get their own style.
+	 */
+	@Unique
+	private String serverstyler$serverId;
+
 	/**
 	 * Latches {@code true} once the user has edited the style in <em>any</em>
 	 * incarnation of the panel. {@code init()} rebuilds the panel on a resize,
@@ -92,6 +103,7 @@ public abstract class ManageServerScreenMixin {
 		ScreenInvoker invoker = (ScreenInvoker) (Object) this;
 
 		this.serverstyler$originalIp = this.serverData == null ? null : this.serverData.ip;
+		this.serverstyler$originalName = this.serverData == null ? null : this.serverData.name;
 
 		ServerStyle working;
 		boolean wasVisible;
@@ -104,9 +116,19 @@ public abstract class ManageServerScreenMixin {
 			ConfigManager config = ServerStylerClient.config();
 			ServerStyle existing = config == null || this.serverData == null
 					? null
-					: config.getRaw(this.serverData.ip);
+					: config.getRawFor(this.serverData.ip, this.serverData.name);
 			working = existing != null ? existing.copy() : new ServerStyle();
 			wasVisible = false;
+		}
+
+		// Bind this screen to its own server id. Two entries pointing at the same
+		// address therefore edit two independent styles instead of sharing one.
+		ConfigManager idConfig = ServerStylerClient.config();
+		if (idConfig != null && this.serverData != null) {
+			this.serverstyler$serverId = idConfig.resolveId(this.serverData.ip, this.serverData.name);
+			if (this.serverstyler$serverId != null) {
+				idConfig.saveAsync();
+			}
 		}
 
 		this.serverstyler$anchor = serverstyler$makeAnchor();
@@ -412,22 +434,32 @@ public abstract class ManageServerScreenMixin {
 			return;
 		}
 
-		String oldIp = this.serverstyler$originalIp != null
-				? this.serverstyler$originalIp
-				: (this.serverData != null ? this.serverData.ip : null);
-		String newIp = this.ipEdit != null ? this.ipEdit.getValue() : oldIp;
+		String newIp = this.ipEdit != null ? this.ipEdit.getValue() : this.serverstyler$originalIp;
+		String newName = this.nameEdit != null ? this.nameEdit.getValue() : this.serverstyler$originalName;
 
-		String oldKey = ServerStyleConfig.normaliseIp(oldIp);
+		String oldKey = ServerStyleConfig.normaliseIp(this.serverstyler$originalIp);
 		String newKey = ServerStyleConfig.normaliseIp(newIp);
 		boolean ipChanged = !oldKey.isEmpty() && !oldKey.equals(newKey);
-		ServerStyle existing = config.getRaw(oldIp);
+		ServerStyle existing = config.getRawFor(this.serverstyler$originalIp,
+				this.serverstyler$originalName);
 
 		boolean edited = this.serverstyler$hadEdits || panel.isModified();
 		if (!edited && !(ipChanged && existing != null)) {
 			return;
 		}
 
-		config.saveForServer(oldIp, newIp, panel.style());
+		// Keep the id stable across an address/name edit so the style follows the
+		// server instead of being orphaned under the stale binding.
+		String id = this.serverstyler$serverId;
+		if (id == null) {
+			id = config.resolveId(newIp, newName);
+		} else {
+			config.bindIdentity(id, newIp, newName);
+		}
+		if (id == null) {
+			return;
+		}
+		config.set(id, panel.style());
 		config.saveAsync();
 	}
 

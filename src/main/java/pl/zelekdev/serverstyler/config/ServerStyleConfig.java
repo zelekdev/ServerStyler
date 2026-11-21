@@ -25,10 +25,10 @@ import java.util.Map;
  * <p>File layout:</p>
  * <pre>
  * {
- *   "schemaVersion": 5,
+ *   "schemaVersion": 6,
  *   "language": "en",
  *   "servers": {
- *     "mc.example.com:25565": {
+ *     "srv-3f9a1c07b2de": {
  *       "enabled": true,
  *       "mode": "GRADIENT",
  *       "colors": ["#FF55AA", "#00AAFF"],
@@ -47,6 +47,13 @@ import java.util.Map;
  * position of each stop along the name. The first is always {@code 0} and the last
  * always {@code 1}; only interior stops move, which is what allows one colour to
  * occupy more of the name than another (e.g. {@code [0.0, 0.2, 1.0]}).</p>
+ *
+ * <p>Since v6 the {@code servers} map is keyed by an automatically assigned
+ * <em>server id</em> ({@code srv-<12 hex>}) instead of the address, so two
+ * multiplayer entries pointing at the same address can carry different styles.
+ * The id-to-address binding lives in {@code identities.json}; see
+ * {@link ServerIdentityStore}. Files from v5 and earlier are keyed by address and
+ * are converted by {@link SchemaMigration}.</p>
  *
  * <p>Older structures are upgraded before parsing by {@link SchemaMigration}, which
  * edits the raw JSON so it can reshape keys and value types (and so fields this
@@ -70,7 +77,7 @@ public final class ServerStyleConfig {
 	public static final int MAX_ADDRESS_LENGTH = 128;
 
 	/** Schema version written by this build. */
-	public static final int SCHEMA_VERSION = 5;
+	public static final int SCHEMA_VERSION = 6;
 
 	/** Language code written when none has been chosen. */
 	public static final String DEFAULT_LANGUAGE = "en";
@@ -78,10 +85,19 @@ public final class ServerStyleConfig {
 	private int schemaVersion = SCHEMA_VERSION;
 	private String language = DEFAULT_LANGUAGE;
 	private final Map<String, ServerStyle> servers;
+	private final Map<String, ServerIdentity> identities;
 
 	public ServerStyleConfig(Map<String, ServerStyle> servers) {
+		this(servers, null);
+	}
+
+	public ServerStyleConfig(Map<String, ServerStyle> servers,
+							 Map<String, ServerIdentity> identities) {
 		this.schemaVersion = SCHEMA_VERSION;
 		this.servers = servers == null ? new LinkedHashMap<>() : new LinkedHashMap<>(servers);
+		this.identities = identities == null
+				? new LinkedHashMap<>()
+				: new LinkedHashMap<>(identities);
 	}
 
 	public int getSchemaVersion() {
@@ -113,12 +129,42 @@ public final class ServerStyleConfig {
 		return servers;
 	}
 
+	/**
+	 * Live (mutable) id-to-binding map; callers must synchronise through the
+	 * {@link ConfigManager}.
+	 *
+	 * <p>Stored in the same file as the styles so the two can never drift apart:
+	 * a style keyed on an id whose binding was lost would be unreachable, and a
+	 * binding without a style is just a wasted line.</p>
+	 */
+	public Map<String, ServerIdentity> getIdentities() {
+		return identities;
+	}
+
 	/** Normalises an IP/address key for the config map (trim + lowercase). */
 	public static String normaliseIp(String ip) {
 		if (ip == null) {
 			return "";
 		}
 		return ip.trim().toLowerCase(Locale.ROOT);
+	}
+
+	/**
+	 * Normalises a {@code servers} map key.
+	 *
+	 * <p>Since v6 a key is either a generated server id ({@code srv-<12 hex>},
+	 * already canonical) or a legacy address. Ids are returned untouched; anything
+	 * else is normalised as an address so a hand-edited file still matches.</p>
+	 */
+	public static String normaliseKey(String key) {
+		if (key == null) {
+			return "";
+		}
+		String trimmed = key.trim();
+		if (ServerIdentity.isServerId(trimmed)) {
+			return trimmed;
+		}
+		return normaliseIp(trimmed);
 	}
 
 	/**
@@ -150,6 +196,14 @@ public final class ServerStyleConfig {
 		}
 		// Must contain at least one non-whitespace character.
 		return !key.isBlank();
+	}
+
+	/**
+	 * Plausibility check for a {@code servers} map key: either a generated server
+	 * id or a structurally valid address.
+	 */
+	public static boolean isPlausibleKey(String key) {
+		return ServerIdentity.isServerId(key) || isPlausibleAddress(key);
 	}
 
 	// ------------------------------------------------------------------
@@ -252,6 +306,21 @@ public final class ServerStyleConfig {
 			// Written before "servers" so the hand-editable language line sits at
 			// the top of the file, where a player looking for it will find it.
 			root.addProperty("language", src.getLanguage());
+			// v6: id -> (address, name) bindings. Written before "servers" so a
+			// human reading the file sees what each style key refers to.
+			JsonObject identities = new JsonObject();
+			for (Map.Entry<String, ServerIdentity> e : src.getIdentities().entrySet()) {
+				ServerIdentity identity = e.getValue();
+				JsonObject obj = new JsonObject();
+				obj.addProperty("ip", identity.ip());
+				// A null name is omitted entirely: that is the "any name on this
+				// address" legacy binding, and `"name": null` would be noise.
+				if (identity.name() != null) {
+					obj.addProperty("name", identity.name());
+				}
+				identities.add(e.getKey(), obj);
+			}
+			root.add("identities", identities);
 			JsonObject servers = new JsonObject();
 			for (Map.Entry<String, ServerStyle> e : src.getServers().entrySet()) {
 				servers.add(e.getKey(), styleToJson(e.getValue()));
@@ -277,13 +346,36 @@ public final class ServerStyleConfig {
 				if (!e.getValue().isJsonObject()) {
 					continue;
 				}
-				String key = normaliseIp(e.getKey());
-				if (!isPlausibleAddress(key)) {
+				String key = normaliseKey(e.getKey());
+				if (!isPlausibleKey(key)) {
 					continue;
 				}
 				map.put(key, styleFromJson(e.getValue().getAsJsonObject()));
 			}
-			ServerStyleConfig cfg = new ServerStyleConfig(map);
+			Map<String, ServerIdentity> ids = new LinkedHashMap<>();
+			JsonObject identityRoot = JsonUtils.asObject(root.get("identities"), new JsonObject());
+			int seen = 0;
+			for (Map.Entry<String, JsonElement> e : identityRoot.entrySet()) {
+				if (seen++ >= JsonUtils.MAX_ARRAY_ENTRIES) {
+					break;
+				}
+				if (!(e.getValue() instanceof JsonObject obj)) {
+					continue;
+				}
+				String id = e.getKey();
+				if (!ServerIdentity.isServerId(id)) {
+					continue;
+				}
+				String ip = ServerIdentity.normaliseAddress(
+						JsonUtils.asString(obj.get("ip"), "", MAX_ADDRESS_LENGTH));
+				if (ip.isEmpty() || !isPlausibleAddress(ip)) {
+					continue;
+				}
+				String name = ServerIdentity.normaliseName(
+						JsonUtils.asString(obj.get("name"), null, MAX_NAME_LENGTH));
+				ids.put(id, new ServerIdentity(id, ip, name));
+			}
+			ServerStyleConfig cfg = new ServerStyleConfig(map, ids);
 			// Always migrate up to the current schema; old files simply gain
 			// defaults for the fields they lacked.
 			cfg.setSchemaVersion(Math.max(version, SCHEMA_VERSION));

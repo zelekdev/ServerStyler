@@ -193,13 +193,13 @@ public abstract class ServerSelectionListMixin {
 			return null;
 		}
 		ConfigManager config = ServerStylerClient.config();
-		return config == null ? null : config.getEffective(data.ip);
+		return config == null ? null : config.getEffectiveFor(data.ip, data.name);
 	}
 
 	/**
 	 * Builds the styled component for the already-trimmed {@code visible} text.
 	 *
-	 * <p>{@link RenderCache} is keyed on {@code (ip, text)}, and the text passed here
+	 * <p>{@link RenderCache} is keyed on {@code (server id, text)}, and the text passed here
 	 * is the post-truncation string, so a name that shrinks at a narrow window and
 	 * grows again on resize still hits the cache correctly instead of reusing a
 	 * stale, over-long component.</p>
@@ -212,7 +212,7 @@ public abstract class ServerSelectionListMixin {
 		}
 		RenderCache cache = ServerStylerClient.renderCache();
 		return cache != null
-				? cache.styled(data.ip, visible)
+				? cache.styled(data.ip, data.name, visible)
 				: TextStylingEngine.buildComponent(visible, style);
 	}
 }
