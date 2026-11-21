@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -80,14 +81,21 @@ public final class StyleEditorPanel extends AbstractWidget {
 	/** Width of the studio panel (full tier). */
 	public static final int WIDE_WIDTH = 420;
 
-	/** Height of the studio panel (GUI scale 1&ndash;2). */
-	public static final int HEIGHT = 204;
+	/**
+	 * Height of the studio panel (GUI scale 1&ndash;2).
+	 *
+	 * <p>Not a hand-picked number: it is the height the stacked studio rows
+	 * actually need, measured once at class load. Retuning any row therefore
+	 * resizes the panel automatically instead of leaving a stale constant
+	 * behind.</p>
+	 */
+	public static final int HEIGHT;
 
-	/** Height of the compact panel (GUI scale 3). */
-	public static final int COMPACT_HEIGHT = 184;
+	/** Height of the compact panel (GUI scale 3), measured from its rows. */
+	public static final int COMPACT_HEIGHT;
 
-	/** Height of the tiny panel (GUI scale 3 on a small window). */
-	public static final int TINY_HEIGHT = 148;
+	/** Height of the tiny panel (GUI scale 3 on a small window), measured. */
+	public static final int TINY_HEIGHT;
 
 	/** Gap between the name field and the trigger button. */
 	public static final int TRIGGER_GAP = 4;
@@ -138,6 +146,23 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 	/** Half-width of a stop handle marker, centred on the stop position. */
 	private static final int HANDLE_W_HALF = 4;
+
+	/**
+	 * Height of a section caption row ("COLOUR", "STYLE", ...).
+	 *
+	 * <p>The caption text itself is 8 px tall; the extra pixels are the breathing
+	 * room the rule and the accent tick need. Every tier reserves this band, so
+	 * a caption can never be overlapped by the row above it.</p>
+	 */
+	private static final int LABEL_H = 10;
+
+	// The three tier heights are derived from the stacked rows rather than typed
+	// in by hand, so they can never disagree with the layout they describe.
+	static {
+		HEIGHT = metricsFor(MODE_FULL).height();
+		COMPACT_HEIGHT = metricsFor(MODE_COMPACT).height();
+		TINY_HEIGHT = metricsFor(MODE_TINY).height();
+	}
 
 	/**
 	 * Row height used only for the widgets' <em>initial</em> bounds at construction
@@ -304,107 +329,172 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * pixels), where even the compact panel plus the preset column would not fit.</p>
 	 */
 	private void applyMode(int mode) {
+		Metrics m = metricsFor(mode);
 		this.mode = mode;
 		this.compact = mode != MODE_FULL;
 		this.studio = mode == MODE_FULL;
-		if (mode == MODE_TINY) {
-			this.height = TINY_HEIGHT;
-			this.panelWidth = WIDTH;
-			this.contentW = INNER;
-			this.leftColX = PAD;
-			this.leftColW = INNER;
-			this.rightColX = PAD;
-			this.rightColW = INNER;
-			this.rowH = 10;
-			this.headerH = 11;
-			// No preview strip in the tiny tier: the space is needed for the
-			// dedicated history and recent-colour rows.
-			this.previewY = 11;
-			this.previewH = 0;
-			this.historyY = 12;
-			this.colourLabelY = 23;
-			this.barY = 33;
-			this.barH = 8;
-			// Handles sit inside the bar here: a 4 px overhang would collide with
-			// the COLOUR label above and the hue ramp below.
-			this.handleHalf = 0;
-			this.hueY = 44;
-			this.alphaY = 56;
-			this.hexY = 68;
-			this.recentY = 80;
-			this.recentH = 8;
-			this.styleLabelY = 92;
-			this.modeY = 101;
-			this.formatY = 113;
-			this.layoutLabelY = 127;
-			this.alignY = 136;
-		} else if (mode == MODE_COMPACT) {
-			this.height = COMPACT_HEIGHT;
-			this.panelWidth = WIDTH;
-			this.contentW = INNER;
-			this.leftColX = PAD;
-			this.leftColW = INNER;
-			this.rightColX = PAD;
-			this.rightColW = INNER;
-			this.rowH = 11;
-			this.headerH = 12;
-			this.previewY = 13;
-			this.previewH = 12;
-			this.historyY = 27;
-			this.colourLabelY = 42;
-			this.barY = 54;
-			this.barH = 9;
-			this.handleHalf = 3;
-			this.hueY = 67;
-			this.alphaY = 80;
-			this.hexY = 93;
-			this.recentY = 106;
-			this.recentH = 9;
-			this.styleLabelY = 119;
-			this.modeY = 129;
-			this.formatY = 143;
-			this.layoutLabelY = 158;
-			this.alignY = 168;
-		} else {
-			// Studio tier: a wide two-column panel with a full-width preview band
-			// on top and a full-width history toolbar at the bottom. Colour lives
-			// in the left column, style and layout in the right one. This is the
-			// layout used at GUI scale 1-2, where horizontal room is plentiful and
-			// vertical room is the scarce resource.
-			this.height = HEIGHT;
-			this.panelWidth = WIDE_WIDTH;
-			this.contentW = WIDE_WIDTH - PAD * 2;
-			this.leftColX = PAD;
-			this.leftColW = LEFT_W;
-			this.rightColX = PAD + LEFT_W + COL_GAP;
-			this.rightColW = RIGHT_W;
-			this.rowH = 16;
-			this.headerH = 20;
-			this.previewY = 24;
-			this.previewH = 22;
-			this.colourLabelY = 52;
-			this.barY = 66;
-			this.barH = 16;
-			this.handleHalf = 4;
-			this.hueY = 88;
-			this.alphaY = 108;
-			this.hexY = 128;
-			this.recentY = 148;
-			this.recentH = 12;
-			this.styleLabelY = 52;
-			this.modeY = 66;
-			this.formatY = 90;
-			this.layoutLabelY = 118;
-			this.alignY = 132;
-			this.historyLabelY = 170;
-			this.historyY = 182;
-		}
+		this.height = m.height();
+		this.panelWidth = m.panelWidth();
+		this.contentW = m.contentW();
+		this.leftColX = m.leftColX();
+		this.leftColW = m.leftColW();
+		this.rightColX = m.rightColX();
+		this.rightColW = m.rightColW();
+		this.rowH = m.rowH();
+		this.headerH = m.headerH();
+		this.previewY = m.previewY();
+		this.previewH = m.previewH();
+		this.historyLabelY = m.historyLabelY();
+		this.historyY = m.historyY();
+		this.colourLabelY = m.colourLabelY();
+		this.barY = m.barY();
+		this.barH = m.barH();
+		this.handleHalf = m.handleHalf();
+		this.hueY = m.hueY();
+		this.alphaY = m.alphaY();
+		this.hexY = m.hexY();
+		this.recentY = m.recentY();
+		this.recentH = m.recentH();
+		this.styleLabelY = m.styleLabelY();
+		this.modeY = m.modeY();
+		this.formatY = m.formatY();
+		this.layoutLabelY = m.layoutLabelY();
+		this.alignY = m.alignY();
 		// The recent-colour strip lives in the colour column, so it is measured
 		// against that column's width, not the whole panel.
 		int stripSpace = this.leftColW;
 		this.swatchW = Math.max(4,
 				(stripSpace - (MAX_RECENT - 1) * RECENT_SWATCH_GAP) / MAX_RECENT);
 		this.recentStripW = MAX_RECENT * (this.swatchW + RECENT_SWATCH_GAP) - RECENT_SWATCH_GAP;
+	}
+
+	/**
+	 * Every vertical measurement of one geometry tier.
+	 *
+	 * <p>Produced by {@link #metricsFor(int)}, which stacks the rows instead of
+	 * hard-coding their Y values. That is the whole point: a row's position is
+	 * derived from the height of the row above it, so two rows can never be
+	 * assigned the same band no matter how the tier is retuned.</p>
+	 */
+	private record Metrics(int height, int panelWidth, int contentW, int leftColX, int leftColW,
+						   int rightColX, int rightColW, int rowH, int headerH,
+						   int previewY, int previewH, int historyLabelY, int historyY,
+						   int colourLabelY, int barY, int barH, int handleHalf,
+						   int hueY, int alphaY, int hexY, int recentY, int recentH,
+						   int styleLabelY, int modeY, int formatY, int layoutLabelY,
+						   int alignY) {
+	}
+
+	/**
+	 * Builds the metrics for one tier by stacking its rows.
+	 *
+	 * <p>The single-column tiers stack every row in reading order. The studio
+	 * tier stacks two independent columns and then pins the history toolbar
+	 * below whichever column ended lower, so the footer can never ride up into
+	 * the colour or style cards.</p>
+	 */
+	private static Metrics metricsFor(int mode) {
+		if (mode == MODE_TINY) {
+			int rowH = 10;
+			int headerH = 11;
+			int barH = 8;
+			// Handles sit inside the bar here: a 4 px overhang would collide with
+			// the COLOUR label above and the hue ramp below.
+			int handleHalf = 0;
+			int recentH = 8;
+			LayoutGuard.Stack s = new LayoutGuard.Stack(headerH);
+			// No preview strip in the tiny tier: the space is needed for the
+			// dedicated history and recent-colour rows.
+			int previewY = s.next(0, 0);
+			int historyY = s.next(1, rowH);
+			int colourLabelY = s.next(1, LABEL_H);
+			int barY = s.next(2, barH);
+			int hueY = s.next(2, rowH);
+			int alphaY = s.next(1, rowH);
+			int hexY = s.next(1, rowH);
+			int recentY = s.next(1, recentH);
+			int styleLabelY = s.next(3, LABEL_H);
+			int modeY = s.next(1, rowH);
+			int formatY = s.next(1, rowH);
+			int layoutLabelY = s.next(3, LABEL_H);
+			int alignY = s.next(1, rowH);
+			int height = s.cursor() + 2;
+			return new Metrics(height, WIDTH, INNER, PAD, INNER, PAD, INNER, rowH, headerH,
+					previewY, 0, historyY, historyY, colourLabelY, barY, barH, handleHalf,
+					hueY, alphaY, hexY, recentY, recentH, styleLabelY, modeY, formatY,
+					layoutLabelY, alignY);
+		}
+		if (mode == MODE_COMPACT) {
+			int rowH = 11;
+			int headerH = 12;
+			int barH = 9;
+			int handleHalf = 3;
+			int recentH = 9;
+			LayoutGuard.Stack s = new LayoutGuard.Stack(headerH);
+			int previewY = s.next(1, 12);
+			int historyY = s.next(2, rowH);
+			int colourLabelY = s.next(4, LABEL_H);
+			int barY = s.next(4, barH);
+			int hueY = s.next(4, rowH);
+			int alphaY = s.next(2, rowH);
+			int hexY = s.next(2, rowH);
+			int recentY = s.next(2, recentH);
+			int styleLabelY = s.next(4, LABEL_H);
+			int modeY = s.next(2, rowH);
+			int formatY = s.next(3, rowH);
+			int layoutLabelY = s.next(4, LABEL_H);
+			int alignY = s.next(2, rowH);
+			int height = s.cursor() + 5;
+			return new Metrics(height, WIDTH, INNER, PAD, INNER, PAD, INNER, rowH, headerH,
+					previewY, 12, historyY, historyY, colourLabelY, barY, barH, handleHalf,
+					hueY, alphaY, hexY, recentY, recentH, styleLabelY, modeY, formatY,
+					layoutLabelY, alignY);
+		}
+
+		// Studio tier: a wide two-column panel with a full-width preview band on
+		// top and a full-width history toolbar at the bottom. Colour lives in the
+		// left column, style and layout in the right one. This is the layout used
+		// at GUI scale 1-2, where horizontal room is plentiful and vertical room
+		// is the scarce resource.
+		int rowH = 16;
+		int headerH = 20;
+		int barH = 16;
+		int handleHalf = 4;
+		int recentH = 12;
+		int previewH = 22;
+		int contentW = WIDE_WIDTH - PAD * 2;
+
+		LayoutGuard.Stack top = new LayoutGuard.Stack(headerH);
+		int previewY = top.next(4, previewH);
+		int columnTop = top.cursor() + 6;
+
+		LayoutGuard.Stack left = new LayoutGuard.Stack(columnTop);
+		int colourLabelY = left.next(0, LABEL_H);
+		int barY = left.next(6, barH);
+		int hueY = left.next(6 + handleHalf, rowH);
+		int alphaY = left.next(4, rowH);
+		int hexY = left.next(4, rowH);
+		int recentY = left.next(4, recentH);
+
+		LayoutGuard.Stack right = new LayoutGuard.Stack(columnTop);
+		int styleLabelY = right.next(0, LABEL_H);
+		int modeY = right.next(6, rowH);
+		int formatY = right.next(8, rowH);
+		int layoutLabelY = right.next(12, LABEL_H);
+		int alignY = right.next(6, rowH);
+
+		// The footer starts below whichever column ran longer, so it can never
+		// overlap the taller of the two cards.
+		LayoutGuard.Stack footer = new LayoutGuard.Stack(Math.max(left.cursor(), right.cursor()));
+		int historyLabelY = footer.next(10, LABEL_H);
+		int historyY = footer.next(4, rowH);
+		int height = footer.cursor() + PAD;
+
+		return new Metrics(height, WIDE_WIDTH, contentW, PAD, LEFT_W,
+				PAD + LEFT_W + COL_GAP, RIGHT_W, rowH, headerH,
+				previewY, previewH, historyLabelY, historyY, colourLabelY, barY, barH,
+				handleHalf, hueY, alphaY, hexY, recentY, recentH, styleLabelY, modeY,
+				formatY, layoutLabelY, alignY);
 	}
 
 	/** Height of the panel in its current mode. */
@@ -1020,7 +1110,89 @@ public final class StyleEditorPanel extends AbstractWidget {
 		} else {
 			layoutColumn(originX, originY);
 		}
+		verifyLayout(originX, originY);
 		applyVisibility();
+	}
+
+	/**
+	 * Runs the overlap guard over the rows that were just placed.
+	 *
+	 * <p>The rows are stacked, so this should always come back clean. It is kept
+	 * as a live assertion: if a future edit ever places two rows on the same
+	 * band, the guard moves the lower one down and logs exactly which row moved,
+	 * instead of shipping a panel with overlapping controls.</p>
+	 */
+	private void verifyLayout(int originX, int originY) {
+		LayoutGuard guard = new LayoutGuard();
+		int left = originX;
+		int top = originY;
+
+		// Only leaf rows are registered. The header band and the section cards
+		// are containers, so including them would make the guard push their own
+		// children out of them.
+		if (this.previewH > 0) {
+			guard.add("preview", left + PAD, top + this.previewY, this.contentW, this.previewH);
+		}
+
+		// Colour column.
+		guard.add("colourLabel", left + this.leftColX, top + this.colourLabelY,
+				this.leftColW, LABEL_H);
+		guard.add("bar", left + this.leftColX, top + this.barY, this.leftColW, this.barH);
+		guard.add("hue", left + this.leftColX, top + this.hueY, this.leftColW, this.rowH);
+		guard.add("alpha", left + this.leftColX, top + this.alphaY, this.leftColW, this.rowH);
+		guard.add("hex", left + this.leftColX, top + this.hexY, this.leftColW, this.rowH);
+		guard.add("recent", left + this.leftColX, top + this.recentY, this.leftColW,
+				this.recentH);
+
+		// Right column (studio) or the same column again (single-column tiers).
+		guard.add("styleLabel", left + this.rightColX, top + this.styleLabelY,
+				this.rightColW, LABEL_H);
+		guard.add("mode", left + this.rightColX, top + this.modeY, this.rightColW, this.rowH);
+		guard.add("format", left + this.rightColX, top + this.formatY, this.rightColW,
+				this.rowH);
+		guard.add("layoutLabel", left + this.rightColX, top + this.layoutLabelY,
+				this.rightColW, LABEL_H);
+		guard.add("align", left + this.rightColX, top + this.alignY, this.rightColW, this.rowH);
+
+		// History row.
+		guard.add("history", left + PAD, top + this.historyY, this.contentW, this.rowH);
+
+		Map<String, Integer> resolved = guard.resolve(top + this.headerH, top + this.height);
+		if (guard.isClean()) {
+			return;
+		}
+
+		// Something collided. Adopt the repaired positions and re-place the
+		// widgets, so the panel heals itself instead of drawing on top of itself.
+		this.colourLabelY = resolved.get("colourLabel") - top;
+		this.barY = resolved.get("bar") - top;
+		this.hueY = resolved.get("hue") - top;
+		this.alphaY = resolved.get("alpha") - top;
+		this.hexY = resolved.get("hex") - top;
+		this.recentY = resolved.get("recent") - top;
+		this.styleLabelY = resolved.get("styleLabel") - top;
+		this.modeY = resolved.get("mode") - top;
+		this.formatY = resolved.get("format") - top;
+		this.layoutLabelY = resolved.get("layoutLabel") - top;
+		this.alignY = resolved.get("align") - top;
+		this.historyY = resolved.get("history") - top;
+		if (this.studio) {
+			layoutStudio(originX, originY);
+		} else {
+			layoutColumn(originX, originY);
+		}
+		guard.report("StyleEditorPanel/" + modeName());
+	}
+
+	/** Short name of the active tier, used in layout diagnostics. */
+	private String modeName() {
+		if (this.mode == MODE_TINY) {
+			return "tiny";
+		}
+		if (this.mode == MODE_COMPACT) {
+			return "compact";
+		}
+		return "studio";
 	}
 
 	/**

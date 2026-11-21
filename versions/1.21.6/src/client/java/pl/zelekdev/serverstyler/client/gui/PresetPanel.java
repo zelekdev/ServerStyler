@@ -59,14 +59,25 @@ public final class PresetPanel extends AbstractWidget {
 	/** Column width in GUI-scaled pixels. */
 	public static final int WIDTH = 180;
 
-	/** Height of the full column (GUI scale 1&ndash;2). */
-	public static final int FULL_HEIGHT = 259;
+	/**
+	 * Height of the full column (GUI scale 1&ndash;2).
+	 *
+	 * <p>Measured from the stacked rows rather than typed in by hand, so it can
+	 * never disagree with the layout it describes.</p>
+	 */
+	public static final int FULL_HEIGHT;
 
-	/** Height of the compact column (GUI scale 3). */
-	public static final int COMPACT_HEIGHT = 145;
+	/** Height of the compact column (GUI scale 3), measured from its rows. */
+	public static final int COMPACT_HEIGHT;
 
-	/** Height of the tiny column (GUI scale 3 on a small window). */
-	public static final int TINY_HEIGHT = 96;
+	/** Height of the tiny column (GUI scale 3 on a small window), measured. */
+	public static final int TINY_HEIGHT;
+
+	static {
+		FULL_HEIGHT = metricsFor(StyleEditorPanel.MODE_FULL).height();
+		COMPACT_HEIGHT = metricsFor(StyleEditorPanel.MODE_COMPACT).height();
+		TINY_HEIGHT = metricsFor(StyleEditorPanel.MODE_TINY).height();
+	}
 
 	/** Gap between the two windows, and between the column and the editor. */
 	public static final int GAP = 4;
@@ -81,6 +92,9 @@ public final class PresetPanel extends AbstractWidget {
 	/** Gap between two per-row action buttons. */
 	private static final int ROW_ACTION_GAP = 2;
 	private static final int PAGER_BUTTON_W = 16;
+
+	/** Height of a section caption row ("READY-MADE", "SAVE CURRENT", ...). */
+	private static final int CAPTION_H = 9;
 
 	/** Largest built-in grid either layout can show. */
 	private static final int MAX_BUILTIN_CELLS = 12;
@@ -119,6 +133,7 @@ public final class PresetPanel extends AbstractWidget {
 	private int mode;
 	private boolean compact;
 	private int headerH;
+	private int biCaptionY;
 	private int biGridY;
 	private int biCols;
 	private int biRows;
@@ -127,8 +142,10 @@ public final class PresetPanel extends AbstractWidget {
 	private int biPitch;
 	private int builtinHeight;
 	private int userTop;
+	private int saveCaptionY;
 	private int userSaveY;
 	private int userSaveH;
+	private int savedCaptionY;
 	private int userRowsY;
 	private int userRows;
 	private int userRowH;
@@ -177,66 +194,129 @@ public final class PresetPanel extends AbstractWidget {
 	 * means switching modes never has to create or destroy children.</p>
 	 */
 	private void applyMode(int mode) {
+		Metrics m = metricsFor(mode);
 		this.mode = mode;
 		this.compact = mode != StyleEditorPanel.MODE_FULL;
+		this.headerH = m.headerH();
+		this.biCols = m.biCols();
+		this.biRows = m.biRows();
+		this.biCellW = m.biCellW();
+		this.biCellH = m.biCellH();
+		this.biPitch = m.biPitch();
+		this.biCaptionY = m.biCaptionY();
+		this.biGridY = m.biGridY();
+		this.builtinHeight = m.builtinHeight();
+		this.userTop = m.userTop();
+		this.saveCaptionY = m.saveCaptionY();
+		this.userSaveY = m.userSaveY();
+		this.userSaveH = m.userSaveH();
+		this.savedCaptionY = m.savedCaptionY();
+		this.userRowsY = m.userRowsY();
+		this.userRows = m.userRows();
+		this.userRowH = m.userRowH();
+		this.userPitch = m.userPitch();
+		this.userPagerY = m.userPagerY();
+		this.userPagerH = m.userPagerH();
+		this.height = m.height();
+	}
+
+	/** Every measurement of one column geometry. */
+	private record Metrics(int headerH, int biCols, int biRows, int biCellW, int biCellH,
+						   int biPitch, int biCaptionY, int biGridY, int builtinHeight,
+						   int userTop, int saveCaptionY, int userSaveY, int userSaveH,
+						   int savedCaptionY, int userRowsY, int userRows, int userRowH,
+						   int userPitch, int userPagerY, int userPagerH, int height) {
+	}
+
+	/**
+	 * Builds one column geometry by stacking its rows.
+	 *
+	 * <p>Every Y is produced by a forward-only cursor, so the built-in grid, the
+	 * save row, the saved rows and the pager can never be handed the same band.
+	 * Retuning a row height therefore moves everything under it instead of
+	 * silently overlapping it.</p>
+	 */
+	private static Metrics metricsFor(int mode) {
+		int headerH;
+		int biCols;
+		int biRows;
+		int biCellH;
+		int biPitch;
+		int userRows;
+		int userRowH;
+		int userPitch;
+		int userSaveH;
+		int userPagerH;
+		int labelGap;
+		int sectionGap;
 		if (mode == StyleEditorPanel.MODE_TINY) {
-			this.headerH = 10;
-			this.biGridY = 11;
-			this.biCols = 4;
-			this.biRows = 3;
-			this.biCellW = (INNER - 12) / 4;
-			this.biCellH = 10;
-			this.biPitch = 11;
-			this.builtinHeight = 46;
-			this.userTop = 48;
-			this.userSaveY = 60;
-			this.userSaveH = 11;
-			this.userRowsY = 74;
-			this.userRows = 1;
-			this.userRowH = 9;
-			this.userPitch = 10;
-			this.userPagerY = 85;
-			this.userPagerH = 9;
-			this.height = TINY_HEIGHT;
+			headerH = 10;
+			biCols = 4;
+			biRows = 3;
+			biCellH = 10;
+			biPitch = 11;
+			userRows = 1;
+			userRowH = 9;
+			userPitch = 10;
+			userSaveH = 11;
+			userPagerH = 9;
+			labelGap = 1;
+			sectionGap = 2;
 		} else if (mode == StyleEditorPanel.MODE_COMPACT) {
-			this.headerH = 12;
-			this.biGridY = 14;
-			this.biCols = 4;
-			this.biRows = 3;
-			this.biCellW = (INNER - 12) / 4;
-			this.biCellH = 14;
-			this.biPitch = 16;
-			this.builtinHeight = 64;
-			this.userTop = 68;
-			this.userSaveY = 82;
-			this.userSaveH = 13;
-			this.userRowsY = 99;
-			this.userRows = 3;
-			this.userRowH = 11;
-			this.userPitch = 12;
-			this.userPagerY = 136;
-			this.userPagerH = 9;
-			this.height = COMPACT_HEIGHT;
+			headerH = 12;
+			biCols = 4;
+			biRows = 3;
+			biCellH = 14;
+			biPitch = 16;
+			userRows = 3;
+			userRowH = 11;
+			userPitch = 12;
+			userSaveH = 13;
+			userPagerH = 9;
+			labelGap = 2;
+			sectionGap = 4;
 		} else {
-			this.headerH = 13;
-			this.biGridY = 25;
-			this.biCols = 2;
-			this.biRows = 6;
-			this.biCellW = (INNER - 4) / 2;
-			this.biCellH = 16;
-			this.biPitch = 18;
-			this.builtinHeight = 133;
-			this.userTop = 137;
-			this.userSaveY = 164;
-			this.userSaveH = 14;
-			this.userRowsY = 194;
-			this.userRows = 4;
-			this.userRowH = 12;
-			this.userPitch = 13;
-			this.userPagerY = 248;
-			this.userPagerH = 10;
-			this.height = FULL_HEIGHT;
+			headerH = 13;
+			biCols = 2;
+			biRows = 6;
+			biCellH = 16;
+			biPitch = 18;
+			userRows = 4;
+			userRowH = 12;
+			userPitch = 13;
+			userSaveH = 14;
+			userPagerH = 10;
+			labelGap = 3;
+			sectionGap = 6;
 		}
+
+		int biCellW = (INNER - (biCols - 1) * 4) / biCols;
+		// Captions are only drawn in the full tier; the two tight tiers skip
+		// them entirely, which is what keeps them short enough to fit a small
+		// window at GUI scale 3.
+		boolean captions = mode == StyleEditorPanel.MODE_FULL;
+		int captionH = captions ? CAPTION_H : 0;
+
+		LayoutGuard.Stack stack = new LayoutGuard.Stack(headerH);
+		// Built-in grid: an optional caption row, then the cells.
+		int biCaptionY = stack.next(labelGap, captionH);
+		int biGridY = stack.next(captions ? 0 : labelGap, biRows * biPitch);
+		int builtinHeight = stack.cursor() + sectionGap;
+		// Second window: optional caption, save row, optional caption, saved
+		// rows, pager.
+		int userTop = builtinHeight;
+		LayoutGuard.Stack user = new LayoutGuard.Stack(userTop + headerH);
+		int saveCaptionY = user.next(labelGap, captionH);
+		int userSaveY = user.next(captions ? 0 : labelGap, userSaveH);
+		int savedCaptionY = user.next(sectionGap, captionH);
+		int userRowsY = user.next(captions ? 0 : sectionGap, userRows * userPitch);
+		int userPagerY = user.next(sectionGap, userPagerH);
+		int height = user.cursor() + sectionGap;
+
+		return new Metrics(headerH, biCols, biRows, biCellW, biCellH, biPitch, biCaptionY,
+				biGridY, builtinHeight, userTop, saveCaptionY, userSaveY, userSaveH,
+				savedCaptionY, userRowsY, userRows, userRowH, userPitch, userPagerY,
+				userPagerH, height);
 	}
 
 	/** Height of the column in its current mode. */
@@ -519,25 +599,25 @@ public final class PresetPanel extends AbstractWidget {
 				apply.setMessage(Component.literal(present ? name : ""));
 				apply.setTooltip(present
 						? Tooltip.create(Component.literal(
-						I18n.tr(Keys.PRESETS_ROW_APPLY_TOOLTIP, name)))
+								I18n.tr(Keys.PRESETS_ROW_APPLY_TOOLTIP, name)))
 						: null);
 			}
 			if (delete != null) {
 				delete.setTooltip(present
 						? Tooltip.create(Component.literal(
-						I18n.tr(Keys.PRESETS_ROW_DELETE_TOOLTIP, name)))
+								I18n.tr(Keys.PRESETS_ROW_DELETE_TOOLTIP, name)))
 						: null);
 			}
 			if (rename != null) {
 				rename.setTooltip(present
 						? Tooltip.create(Component.literal(
-						I18n.tr(Keys.PRESETS_ROW_RENAME_TOOLTIP, name)))
+								I18n.tr(Keys.PRESETS_ROW_RENAME_TOOLTIP, name)))
 						: null);
 			}
 			if (duplicate != null) {
 				duplicate.setTooltip(present
 						? Tooltip.create(Component.literal(
-						I18n.tr(Keys.PRESETS_ROW_DUPLICATE_TOOLTIP, name)))
+								I18n.tr(Keys.PRESETS_ROW_DUPLICATE_TOOLTIP, name)))
 						: null);
 			}
 		}
@@ -708,7 +788,36 @@ public final class PresetPanel extends AbstractWidget {
 		place(this.nextButton, col + INNER - PAGER_BUTTON_W, originY + this.userPagerY,
 				PAGER_BUTTON_W, this.userPagerH);
 
+		verifyLayout(originX, originY);
 		applyVisibility();
+	}
+
+	/**
+	 * Runs the overlap guard over the column's rows.
+	 *
+	 * <p>The rows are stacked, so this should always come back clean. It is kept
+	 * as a live assertion: if a future edit ever places two rows on the same
+	 * band, the guard logs exactly which row moved instead of shipping a column
+	 * with overlapping buttons.</p>
+	 */
+	private void verifyLayout(int originX, int originY) {
+		LayoutGuard guard = new LayoutGuard();
+		int left = originX;
+		int top = originY;
+		int col = left + PAD;
+
+		guard.add("builtinCaption", col, top + this.biCaptionY, INNER, CAPTION_H);
+		guard.add("builtinGrid", col, top + this.biGridY, INNER,
+				this.biRows * this.biPitch);
+		guard.add("saveCaption", col, top + this.saveCaptionY, INNER, CAPTION_H);
+		guard.add("saveRow", col, top + this.userSaveY, INNER, this.userSaveH);
+		guard.add("savedCaption", col, top + this.savedCaptionY, INNER, CAPTION_H);
+		guard.add("userRows", col, top + this.userRowsY, INNER,
+				this.userRows * this.userPitch);
+		guard.add("pager", col, top + this.userPagerY, INNER, this.userPagerH);
+
+		guard.resolve(top, top + this.height);
+		guard.report("PresetPanel/" + (this.compact ? "compact" : "full"));
 	}
 
 	private static void place(AbstractWidget widget, int x, int y, int width, int height) {
@@ -758,7 +867,8 @@ public final class PresetPanel extends AbstractWidget {
 	// ------------------------------------------------------------------
 
 	@Override
-	protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+	protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY,
+											float partialTick) {
 		int left = getX();
 		int top = getY();
 
@@ -767,9 +877,12 @@ public final class PresetPanel extends AbstractWidget {
 				I18n.tr(Keys.PRESETS_WINDOW_USER));
 
 		if (!this.compact) {
-			sectionHeader(graphics, left + PAD, top + 15, I18n.tr(Keys.PRESETS_SECTION_READY));
-			sectionHeader(graphics, left + PAD, top + this.userTop + 15, I18n.tr(Keys.PRESETS_SECTION_SAVE));
-			sectionHeader(graphics, left + PAD, top + this.userRowsY - 10, I18n.tr(Keys.PRESETS_SECTION_SAVED));
+			sectionHeader(graphics, left + PAD, top + this.biCaptionY,
+					I18n.tr(Keys.PRESETS_SECTION_READY));
+			sectionHeader(graphics, left + PAD, top + this.saveCaptionY,
+					I18n.tr(Keys.PRESETS_SECTION_SAVE));
+			sectionHeader(graphics, left + PAD, top + this.savedCaptionY,
+					I18n.tr(Keys.PRESETS_SECTION_SAVED));
 		}
 
 		// Page indicator, centred between the two pager buttons.
