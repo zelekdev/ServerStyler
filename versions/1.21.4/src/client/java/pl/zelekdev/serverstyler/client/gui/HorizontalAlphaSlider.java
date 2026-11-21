@@ -1,5 +1,8 @@
 package pl.zelekdev.serverstyler.client.gui;
 
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Keys;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -27,7 +30,7 @@ public final class HorizontalAlphaSlider extends AbstractHorizontalSlider {
 
 	public HorizontalAlphaSlider(Font font, int x, int y, int width, int height, double opacity,
 								 IntSupplier baseRgb, DoubleConsumer onChanged) {
-		super(font, x, y, width, height, Component.literal("Opacity"), opacity);
+		super(font, x, y, width, height, Component.literal(I18n.tr(Keys.SLIDER_OPACITY)), opacity);
 		this.baseRgb = baseRgb;
 		this.onChanged = onChanged;
 		updateMessage();

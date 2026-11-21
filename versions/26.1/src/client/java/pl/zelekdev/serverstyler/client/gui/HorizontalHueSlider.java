@@ -1,6 +1,8 @@
 package pl.zelekdev.serverstyler.client.gui;
 
 import pl.zelekdev.serverstyler.config.ColorUtils;
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Keys;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -22,7 +24,7 @@ public final class HorizontalHueSlider extends AbstractHorizontalSlider {
 
 	public HorizontalHueSlider(Font font, int x, int y, int width, int height, double hue,
 							   DoubleConsumer onHueChanged) {
-		super(font, x, y, width, height, Component.literal("Hue"), hue);
+		super(font, x, y, width, height, Component.literal(I18n.tr(Keys.SLIDER_HUE)), hue);
 		this.onHueChanged = onHueChanged;
 		updateMessage();
 	}

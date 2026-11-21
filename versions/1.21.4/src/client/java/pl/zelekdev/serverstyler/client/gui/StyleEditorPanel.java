@@ -2,6 +2,8 @@ package pl.zelekdev.serverstyler.client.gui;
 
 import pl.zelekdev.serverstyler.config.ColorUtils;
 import pl.zelekdev.serverstyler.config.ServerStyle;
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Keys;
 import pl.zelekdev.serverstyler.render.TextStylingEngine;
 
 import net.minecraft.ChatFormatting;
@@ -231,7 +233,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 	private ServerStyle gestureSnapshot;
 
 	public StyleEditorPanel(ServerStyle style, Font font, Anchor anchor) {
-		super(0, 0, WIDTH, HEIGHT, Component.literal("ServerStyler"));
+		super(0, 0, WIDTH, HEIGHT, Component.literal(I18n.tr(Keys.PANEL_TITLE)));
 		this.style = style;
 		this.font = font;
 		this.anchor = anchor;
@@ -522,34 +524,34 @@ public final class StyleEditorPanel extends AbstractWidget {
 		this.alphaSlider.setGestureHooks(this::beginGesture, this::endGesture);
 		this.widgetSink.accept(this.alphaSlider);
 
-		this.hexBox = new EditBox(this.font, 0, 0, INNER, ROW_H, Component.literal("Hex"));
+		this.hexBox = new EditBox(this.font, 0, 0, INNER, ROW_H, Component.literal(I18n.tr(Keys.HEX_LABEL)));
 		this.hexBox.setMaxLength(7);
 		this.hexBox.setResponder(this::onHexTyped);
-		this.hexBox.setTooltip(Tooltip.create(Component.literal("Colour of the selected stop")));
+		this.hexBox.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.HEX_TOOLTIP))));
 		this.widgetSink.accept(this.hexBox);
 	}
 
 	private void createStyleControls() {
-		this.modeButton = Button.builder(Component.literal("Mode"), b -> toggleMode())
+		this.modeButton = Button.builder(Component.literal(I18n.tr(Keys.MODE_LABEL)), b -> toggleMode())
 				.bounds(0, 0, INNER, ROW_H).build();
 		this.modeButton.setTooltip(Tooltip.create(
-				Component.literal("Solid colour or multi-stop gradient")));
+				Component.literal(I18n.tr(Keys.MODE_TOOLTIP))));
 		this.widgetSink.accept(this.modeButton);
 
-		this.boldButton = Button.builder(Component.literal("B"), b -> {
+		this.boldButton = Button.builder(Component.literal(I18n.tr(Keys.BOLD_LABEL)), b -> {
 			this.style.setBold(!this.style.isBold());
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
-		this.boldButton.setTooltip(Tooltip.create(Component.literal("Bold")));
+		this.boldButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.BOLD_TOOLTIP))));
 		this.widgetSink.accept(this.boldButton);
 
-		this.italicButton = Button.builder(Component.literal("I"), b -> {
+		this.italicButton = Button.builder(Component.literal(I18n.tr(Keys.ITALIC_LABEL)), b -> {
 			this.style.setItalic(!this.style.isItalic());
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
-		this.italicButton.setTooltip(Tooltip.create(Component.literal("Italic")));
+		this.italicButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.ITALIC_TOOLTIP))));
 		this.widgetSink.accept(this.italicButton);
 
 		this.miniCapsButton = Button.builder(
@@ -559,23 +561,21 @@ public final class StyleEditorPanel extends AbstractWidget {
 					refreshLabels();
 				}).bounds(0, 0, INNER - THIRD_W * 2 - 6, ROW_H).build();
 		this.miniCapsButton.setTooltip(Tooltip.create(Component.literal(
-				"Mini Caps - render the name in small capitals.\n"
-						+ "Polish diacritics are folded to their base letter")));
+				I18n.tr(Keys.MINICAPS_TOOLTIP))));
 		this.widgetSink.accept(this.miniCapsButton);
 
 		// On/off switch lives in the header: it is the most important toggle and
 		// deserves permanent prominence rather than a slot in a list.
-		this.enabledButton = Button.builder(Component.literal("On"), b -> {
+		this.enabledButton = Button.builder(Component.literal(I18n.tr(Keys.ENABLED_ON)), b -> {
 			this.style.setEnabled(!this.style.isEnabled());
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, 34, 12).build();
 		this.enabledButton.setTooltip(Tooltip.create(Component.literal(
-				"Apply this style to the server name.\n"
-						+ "Turning it off keeps the style saved but unused.")));
+				I18n.tr(Keys.ENABLED_TOOLTIP))));
 		this.widgetSink.accept(this.enabledButton);
 
-		this.addStopButton = Button.builder(Component.literal("+"), b -> {
+		this.addStopButton = Button.builder(Component.literal(I18n.tr(Keys.STOP_ADD_LABEL)), b -> {
 			// Remember the spacing before the insert so the newly added stop can be
 			// identified afterwards: the new one is the index whose position is not
 			// present in the old list. New stops are inserted into the widest gap, not
@@ -587,10 +587,10 @@ public final class StyleEditorPanel extends AbstractWidget {
 			commit();
 			syncFromStyle();
 		}).bounds(0, 0, 13, 11).build();
-		this.addStopButton.setTooltip(Tooltip.create(Component.literal("Add gradient stop")));
+		this.addStopButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.STOP_ADD_TOOLTIP))));
 		this.widgetSink.accept(this.addStopButton);
 
-		this.removeStopButton = Button.builder(Component.literal("-"), b -> {
+		this.removeStopButton = Button.builder(Component.literal(I18n.tr(Keys.STOP_REMOVE_LABEL)), b -> {
 			// Remove the currently selected stop when it is removable, otherwise the
 			// last interior one - so the button always does something predictable.
 			int target = this.activeStop;
@@ -602,7 +602,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 			commit();
 			syncFromStyle();
 		}).bounds(0, 0, 13, 11).build();
-		this.removeStopButton.setTooltip(Tooltip.create(Component.literal("Remove selected gradient stop")));
+		this.removeStopButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.STOP_REMOVE_TOOLTIP))));
 		this.widgetSink.accept(this.removeStopButton);
 	}
 
@@ -634,28 +634,28 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	private void createLayoutControls() {
-		this.alignLeftButton = Button.builder(Component.literal("L"), b -> {
+		this.alignLeftButton = Button.builder(Component.literal(I18n.tr(Keys.ALIGN_LEFT_LABEL)), b -> {
 			this.style.setAlignment(ServerStyle.ALIGN_LEFT);
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
-		this.alignLeftButton.setTooltip(Tooltip.create(Component.literal("Align left")));
+		this.alignLeftButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.ALIGN_LEFT_TOOLTIP))));
 		this.widgetSink.accept(this.alignLeftButton);
 
-		this.alignCenterButton = Button.builder(Component.literal("C"), b -> {
+		this.alignCenterButton = Button.builder(Component.literal(I18n.tr(Keys.ALIGN_CENTER_LABEL)), b -> {
 			this.style.setAlignment(ServerStyle.ALIGN_CENTER);
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
-		this.alignCenterButton.setTooltip(Tooltip.create(Component.literal("Align center")));
+		this.alignCenterButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.ALIGN_CENTER_TOOLTIP))));
 		this.widgetSink.accept(this.alignCenterButton);
 
-		this.alignRightButton = Button.builder(Component.literal("R"), b -> {
+		this.alignRightButton = Button.builder(Component.literal(I18n.tr(Keys.ALIGN_RIGHT_LABEL)), b -> {
 			this.style.setAlignment(ServerStyle.ALIGN_RIGHT);
 			commit();
 			refreshLabels();
 		}).bounds(0, 0, THIRD_W, ROW_H).build();
-		this.alignRightButton.setTooltip(Tooltip.create(Component.literal("Align right")));
+		this.alignRightButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.ALIGN_RIGHT_TOOLTIP))));
 		this.widgetSink.accept(this.alignRightButton);
 	}
 
@@ -667,21 +667,20 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * crowded with three buttons.</p>
 	 */
 	private void createHistoryControls() {
-		this.undoButton = Button.builder(Component.literal("Undo"), b -> undo())
+		this.undoButton = Button.builder(Component.literal(I18n.tr(Keys.UNDO_LABEL)), b -> undo())
 				.bounds(0, 0, THIRD_W, ROW_H).build();
-		this.undoButton.setTooltip(Tooltip.create(Component.literal("Undo the last change")));
+		this.undoButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.UNDO_TOOLTIP))));
 		this.widgetSink.accept(this.undoButton);
 
-		this.redoButton = Button.builder(Component.literal("Redo"), b -> redo())
+		this.redoButton = Button.builder(Component.literal(I18n.tr(Keys.REDO_LABEL)), b -> redo())
 				.bounds(0, 0, THIRD_W, ROW_H).build();
-		this.redoButton.setTooltip(Tooltip.create(Component.literal("Redo the change you undid")));
+		this.redoButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.REDO_TOOLTIP))));
 		this.widgetSink.accept(this.redoButton);
 
-		this.resetButton = Button.builder(Component.literal("Reset"), b -> resetStyle())
+		this.resetButton = Button.builder(Component.literal(I18n.tr(Keys.RESET_LABEL)), b -> resetStyle())
 				.bounds(0, 0, INNER - THIRD_W * 2 - 6, ROW_H).build();
 		this.resetButton.setTooltip(Tooltip.create(Component.literal(
-				"Clear the style back to the default white, left-aligned name.\n"
-						+ "Undo brings it back.")));
+				I18n.tr(Keys.RESET_TOOLTIP))));
 		this.widgetSink.accept(this.resetButton);
 	}
 
@@ -1074,16 +1073,16 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * be honoured by widget rendering).
 	 */
 	private void refreshLabels() {
-		this.modeButton.setMessage(Component.literal(this.style.isGradient() ? "Gradient" : "Solid"));
-		this.boldButton.setMessage(emphasise("B", this.style.isBold()));
-		this.italicButton.setMessage(emphasise("I", this.style.isItalic()));
+		this.modeButton.setMessage(Component.literal(I18n.tr(this.style.isGradient() ? Keys.MODE_GRADIENT : Keys.MODE_SOLID)));
+		this.boldButton.setMessage(emphasise(I18n.tr(Keys.BOLD_LABEL), this.style.isBold()));
+		this.italicButton.setMessage(emphasise(I18n.tr(Keys.ITALIC_LABEL), this.style.isItalic()));
 		this.miniCapsButton.setMessage(emphasise(
 				TextStylingEngine.toMiniCaps("Aa"), this.style.isMiniCaps()));
-		this.enabledButton.setMessage(Component.literal(this.style.isEnabled() ? "On" : "Off"));
+		this.enabledButton.setMessage(Component.literal(I18n.tr(this.style.isEnabled() ? Keys.ENABLED_ON : Keys.ENABLED_OFF)));
 
-		this.alignLeftButton.setMessage(emphasise("L", this.style.isAlignLeft()));
-		this.alignCenterButton.setMessage(emphasise("C", this.style.isAlignCenter()));
-		this.alignRightButton.setMessage(emphasise("R", this.style.isAlignRight()));
+		this.alignLeftButton.setMessage(emphasise(I18n.tr(Keys.ALIGN_LEFT_LABEL), this.style.isAlignLeft()));
+		this.alignCenterButton.setMessage(emphasise(I18n.tr(Keys.ALIGN_CENTER_LABEL), this.style.isAlignCenter()));
+		this.alignRightButton.setMessage(emphasise(I18n.tr(Keys.ALIGN_RIGHT_LABEL), this.style.isAlignRight()));
 	}
 
 	private static Component emphasise(String glyph, boolean selected) {
@@ -1257,7 +1256,7 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * sample keeps the strip readable regardless of what the user typed.
 	 */
 	private String previewText() {
-		String sample = this.style.isGradient() ? "Gradient preview" : "Solid preview";
+		String sample = I18n.tr(this.style.isGradient() ? Keys.PREVIEW_GRADIENT : Keys.PREVIEW_SOLID);
 		return TextStylingEngine.applyMiniCaps(sample, this.style);
 	}
 
@@ -1350,9 +1349,9 @@ public final class StyleEditorPanel extends AbstractWidget {
 
 	private void drawSectionLabels(GuiGraphics graphics, int left, int top) {
 		int labelColor = 0xFFB8B8B8;
-		sectionLabel(graphics, left + PAD, top + this.colourLabelY, "COLOUR", labelColor);
-		sectionLabel(graphics, left + PAD, top + this.styleLabelY, "STYLE", labelColor);
-		sectionLabel(graphics, left + PAD, top + this.layoutLabelY, "LAYOUT", labelColor);
+		sectionLabel(graphics, left + PAD, top + this.colourLabelY, I18n.tr(Keys.SECTION_COLOUR), labelColor);
+		sectionLabel(graphics, left + PAD, top + this.styleLabelY, I18n.tr(Keys.SECTION_STYLE), labelColor);
+		sectionLabel(graphics, left + PAD, top + this.layoutLabelY, I18n.tr(Keys.SECTION_LAYOUT), labelColor);
 	}
 
 	// ------------------------------------------------------------------

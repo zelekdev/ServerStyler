@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "language": "de",
+  "strings": {
+    "panel.title": "ServerStyler",
+
+    "hex.label": "Hex",
+    "hex.tooltip": "Farbe des ausgewählten Stopps",
+
+    "mode.label": "Modus",
+    "mode.tooltip": "Einfarbig oder mehrstufiger Verlauf",
+    "mode.gradient": "Verlauf",
+    "mode.solid": "Einfarbig",
+
+    "bold.label": "B",
+    "bold.tooltip": "Fett",
+    "italic.label": "I",
+    "italic.tooltip": "Kursiv",
+    "minicaps.tooltip": "Mini Caps - zeigt den Namen in Kapitälchen.\nPolnische Sonderzeichen werden auf den Grundbuchstaben reduziert",
+
+    "enabled.on": "Ein",
+    "enabled.off": "Aus",
+    "enabled.tooltip": "Diesen Stil auf den Servernamen anwenden.\nAusschalten behält den Stil, verwendet ihn aber nicht.",
+
+    "stop.add.label": "+",
+    "stop.add.tooltip": "Verlaufsstopp hinzufügen",
+    "stop.remove.label": "-",
+    "stop.remove.tooltip": "Ausgewählten Verlaufsstopp entfernen",
+
+    "align.left.label": "L",
+    "align.left.tooltip": "Linksbündig",
+    "align.center.label": "C",
+    "align.center.tooltip": "Zentriert",
+    "align.right.label": "R",
+    "align.right.tooltip": "Rechtsbündig",
+
+    "undo.label": "Zurück",
+    "undo.tooltip": "Letzte Änderung rückgängig machen",
+    "redo.label": "Wiederh.",
+    "redo.tooltip": "Rückgängig gemachte Änderung wiederholen",
+    "reset.label": "Reset",
+    "reset.tooltip": "Stil auf den weißen, linksbündigen Standardnamen zurücksetzen.\nZurück stellt ihn wieder her.",
+
+    "section.colour": "FARBE",
+    "section.style": "STIL",
+    "section.layout": "LAYOUT",
+
+    "preview.gradient": "Verlaufsvorschau",
+    "preview.solid": "Farbvorschau",
+
+    "slider.hue": "Farbton",
+    "slider.opacity": "Deckkraft",
+
+    "presets.title": "ServerStyler-Vorlagen",
+    "presets.apply.tooltip": "Vorlage \"%s\" auf diesen Server anwenden",
+    "presets.name.label": "Vorlagenname",
+    "presets.name.tooltip": "Name für den Stil, den du speichern willst",
+    "presets.save.label": "Speichern",
+    "presets.save.tooltip": "Aktuellen Stil unter diesem Namen speichern.\nEin vorhandener Name wird überschrieben.",
+    "presets.rename.label": "U",
+    "presets.rename.tooltip": "Diese Vorlage auf den oben eingegebenen Namen umbenennen",
+    "presets.duplicate.label": "K",
+    "presets.duplicate.tooltip": "Eine Kopie dieser Vorlage unter dem oben eingegebenen Namen speichern",
+    "presets.delete.label": "\u00d7",
+    "presets.delete.tooltip": "Diese Vorlage löschen",
+    "presets.prev.label": "<",
+    "presets.prev.tooltip": "Vorherige Seite",
+    "presets.next.label": ">",
+    "presets.next.tooltip": "Nächste Seite",
+
+    "presets.row.apply.tooltip": "\"%s\" auf diesen Server anwenden",
+    "presets.row.delete.tooltip": "\"%s\" löschen",
+    "presets.row.rename.tooltip": "\"%s\" auf den oben eingegebenen Namen umbenennen",
+    "presets.row.duplicate.tooltip": "Eine Kopie von \"%s\" unter dem oben eingegebenen Namen speichern",
+
+    "presets.window.builtin": "EINGEBAUTE VORLAGEN",
+    "presets.window.user": "DEINE VORLAGEN",
+    "presets.section.ready": "FERTIG",
+    "presets.section.save": "AKTUELLEN SPEICHERN",
+    "presets.section.saved": "GESPEICHERT",
+    "presets.page": "Seite %d/%d",
+    "presets.empty": "Noch nichts gespeichert",
+
+    "trigger.tooltip": "ServerStyler - Stil des Servernamens bearbeiten",
+
+    "config.title": "ServerStyler-Einstellungen",
+    "config.language": "Sprache: %s",
+    "config.language.tooltip": "Sprache der ServerStyler-Oberfläche wählen",
+    "config.done": "Fertig",
+    "config.hint.files": "Übersetzungen liegen in config/serverstyler/lang/ und können von Hand bearbeitet werden.",
+    "config.hint.manual": "Ohne ModMenu \"language\" in config/serverstyler/servers.json setzen."
+  }
+}

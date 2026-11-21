@@ -65,7 +65,8 @@ public final class SchemaMigration {
 			new Migration(1, 2, "added alignment, normalised colors/mode/opacity",
 					SchemaMigration::oneToTwo),
 			new Migration(2, 3, "added miniCaps", SchemaMigration::twoToThree),
-			new Migration(3, 4, "added gradient stop positions", SchemaMigration::threeToFour));
+			new Migration(3, 4, "added gradient stop positions", SchemaMigration::threeToFour),
+			new Migration(4, 5, "added the language choice", SchemaMigration::fourToFive));
 
 	private SchemaMigration() {
 	}
@@ -217,6 +218,25 @@ public final class SchemaMigration {
 			style.add("positions", positions);
 			canonicaliseStyleOrder(style);
 		}
+	}
+
+	// ------------------------------------------------------------------
+	// v4 -> v5
+	// ------------------------------------------------------------------
+
+	/**
+	 * Adds the language choice.
+	 *
+	 * <p>v5 stores the interface language at the root of the file, next to
+	 * {@code schemaVersion}, so a player without ModMenu can change it by editing
+	 * one line. Files from v4 and earlier had no translations at all, so English
+	 * is the correct back-fill: it reproduces exactly the text those builds
+	 * showed.</p>
+	 */
+	private static void fourToFive(JsonObject root) {
+		String existing = JsonUtils.asString(root.get("language"), null, 16);
+		root.addProperty("language",
+				pl.zelekdev.serverstyler.i18n.Lang.normalise(existing));
 	}
 
 	/** Field order used when this build writes a style object. */

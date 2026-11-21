@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "language": "en",
+  "strings": {
+    "panel.title": "ServerStyler",
+
+    "hex.label": "Hex",
+    "hex.tooltip": "Colour of the selected stop",
+
+    "mode.label": "Mode",
+    "mode.tooltip": "Solid colour or multi-stop gradient",
+    "mode.gradient": "Gradient",
+    "mode.solid": "Solid",
+
+    "bold.label": "B",
+    "bold.tooltip": "Bold",
+    "italic.label": "I",
+    "italic.tooltip": "Italic",
+    "minicaps.tooltip": "Mini Caps - render the name in small capitals.\nPolish diacritics are folded to their base letter",
+
+    "enabled.on": "On",
+    "enabled.off": "Off",
+    "enabled.tooltip": "Apply this style to the server name.\nTurning it off keeps the style saved but unused.",
+
+    "stop.add.label": "+",
+    "stop.add.tooltip": "Add gradient stop",
+    "stop.remove.label": "-",
+    "stop.remove.tooltip": "Remove selected gradient stop",
+
+    "align.left.label": "L",
+    "align.left.tooltip": "Align left",
+    "align.center.label": "C",
+    "align.center.tooltip": "Align center",
+    "align.right.label": "R",
+    "align.right.tooltip": "Align right",
+
+    "undo.label": "Undo",
+    "undo.tooltip": "Undo the last change",
+    "redo.label": "Redo",
+    "redo.tooltip": "Redo the change you undid",
+    "reset.label": "Reset",
+    "reset.tooltip": "Clear the style back to the default white, left-aligned name.\nUndo brings it back.",
+
+    "section.colour": "COLOUR",
+    "section.style": "STYLE",
+    "section.layout": "LAYOUT",
+
+    "preview.gradient": "Gradient preview",
+    "preview.solid": "Solid preview",
+
+    "slider.hue": "Hue",
+    "slider.opacity": "Opacity",
+
+    "presets.title": "ServerStyler presets",
+    "presets.apply.tooltip": "Apply the \"%s\" preset to this server",
+    "presets.name.label": "Preset name",
+    "presets.name.tooltip": "Name for the style you are about to save",
+    "presets.save.label": "Save",
+    "presets.save.tooltip": "Save the current style under this name.\nSaving an existing name overwrites it.",
+    "presets.rename.label": "R",
+    "presets.rename.tooltip": "Rename this preset to the name typed above",
+    "presets.duplicate.label": "D",
+    "presets.duplicate.tooltip": "Save a copy of this preset under the name typed above",
+    "presets.delete.label": "\u00d7",
+    "presets.delete.tooltip": "Delete this preset",
+    "presets.prev.label": "<",
+    "presets.prev.tooltip": "Previous page",
+    "presets.next.label": ">",
+    "presets.next.tooltip": "Next page",
+
+    "presets.row.apply.tooltip": "Apply \"%s\" to this server",
+    "presets.row.delete.tooltip": "Delete \"%s\"",
+    "presets.row.rename.tooltip": "Rename \"%s\" to the name typed above",
+    "presets.row.duplicate.tooltip": "Save a copy of \"%s\" under the name typed above",
+
+    "presets.window.builtin": "BUILT-IN PRESETS",
+    "presets.window.user": "YOUR PRESETS",
+    "presets.section.ready": "READY-MADE",
+    "presets.section.save": "SAVE CURRENT",
+    "presets.section.saved": "SAVED",
+    "presets.page": "Page %d/%d",
+    "presets.empty": "Nothing saved yet",
+
+    "trigger.tooltip": "ServerStyler - edit the server name style",
+
+    "config.title": "ServerStyler Settings",
+    "config.language": "Language: %s",
+    "config.language.tooltip": "Choose the language used by the ServerStyler interface",
+    "config.done": "Done",
+    "config.hint.files": "Translations live in config/serverstyler/lang/ and can be edited by hand.",
+    "config.hint.manual": "Without ModMenu, set \"language\" in config/serverstyler/servers.json."
+  }
+}

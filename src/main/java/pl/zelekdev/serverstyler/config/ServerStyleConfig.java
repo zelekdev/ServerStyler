@@ -25,7 +25,8 @@ import java.util.Map;
  * <p>File layout:</p>
  * <pre>
  * {
- *   "schemaVersion": 4,
+ *   "schemaVersion": 5,
+ *   "language": "en",
  *   "servers": {
  *     "mc.example.com:25565": {
  *       "enabled": true,
@@ -69,9 +70,13 @@ public final class ServerStyleConfig {
 	public static final int MAX_ADDRESS_LENGTH = 128;
 
 	/** Schema version written by this build. */
-	public static final int SCHEMA_VERSION = 4;
+	public static final int SCHEMA_VERSION = 5;
+
+	/** Language code written when none has been chosen. */
+	public static final String DEFAULT_LANGUAGE = "en";
 
 	private int schemaVersion = SCHEMA_VERSION;
+	private String language = DEFAULT_LANGUAGE;
 	private final Map<String, ServerStyle> servers;
 
 	public ServerStyleConfig(Map<String, ServerStyle> servers) {
@@ -85,6 +90,22 @@ public final class ServerStyleConfig {
 
 	public void setSchemaVersion(int schemaVersion) {
 		this.schemaVersion = schemaVersion;
+	}
+
+	/**
+	 * The language code chosen by the player ({@code "en"}, {@code "pl"},
+	 * {@code "de"}).
+	 *
+	 * <p>Stored in this file rather than in the translation files so a player
+	 * without ModMenu can change it by editing one obvious line. Always a
+	 * canonical code: {@link #setLanguage} normalises whatever it is given.</p>
+	 */
+	public String getLanguage() {
+		return language;
+	}
+
+	public void setLanguage(String language) {
+		this.language = pl.zelekdev.serverstyler.i18n.Lang.normalise(language);
 	}
 
 	/** Live (mutable) map; callers must synchronise through the ConfigManager. */
@@ -228,6 +249,9 @@ public final class ServerStyleConfig {
 									JsonSerializationContext context) {
 			JsonObject root = new JsonObject();
 			root.addProperty("schemaVersion", src.getSchemaVersion());
+			// Written before "servers" so the hand-editable language line sits at
+			// the top of the file, where a player looking for it will find it.
+			root.addProperty("language", src.getLanguage());
 			JsonObject servers = new JsonObject();
 			for (Map.Entry<String, ServerStyle> e : src.getServers().entrySet()) {
 				servers.add(e.getKey(), styleToJson(e.getValue()));
@@ -263,6 +287,9 @@ public final class ServerStyleConfig {
 			// Always migrate up to the current schema; old files simply gain
 			// defaults for the fields they lacked.
 			cfg.setSchemaVersion(Math.max(version, SCHEMA_VERSION));
+			// v5: the language choice. Absent in older files -> English, which is
+			// exactly how those files behaved before translations existed.
+			cfg.setLanguage(JsonUtils.asString(root.get("language"), DEFAULT_LANGUAGE, 16));
 			return cfg;
 		}
 	}

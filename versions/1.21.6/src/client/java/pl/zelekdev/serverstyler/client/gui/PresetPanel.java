@@ -2,6 +2,8 @@ package pl.zelekdev.serverstyler.client.gui;
 
 import pl.zelekdev.serverstyler.config.PresetStore;
 import pl.zelekdev.serverstyler.config.ServerStyle;
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Keys;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -140,7 +142,7 @@ public final class PresetPanel extends AbstractWidget {
 
 	public PresetPanel(ServerStyle style, Font font, PresetStore store,
 					   StyleEditorPanel.Anchor anchor, Runnable onStyleChanged) {
-		super(0, 0, WIDTH, FULL_HEIGHT, Component.literal("ServerStyler presets"));
+		super(0, 0, WIDTH, FULL_HEIGHT, Component.literal(I18n.tr(Keys.PRESETS_TITLE)));
 		this.style = style;
 		this.font = font;
 		this.store = store;
@@ -256,7 +258,7 @@ public final class PresetPanel extends AbstractWidget {
 					.build();
 			if (present) {
 				button.setTooltip(Tooltip.create(Component.literal(
-						"Apply the \"" + label + "\" preset to this server")));
+						I18n.tr(Keys.PRESETS_APPLY_TOOLTIP, label))));
 			}
 			button.visible = present;
 			button.active = present;
@@ -267,18 +269,17 @@ public final class PresetPanel extends AbstractWidget {
 
 	private void createSaveRow() {
 		this.nameBox = new EditBox(this.font, 0, 0, INNER - SAVE_BUTTON_W - 4, this.userSaveH,
-				Component.literal("Preset name"));
+				Component.literal(I18n.tr(Keys.PRESETS_NAME_LABEL)));
 		this.nameBox.setMaxLength(PresetStore.MAX_NAME_LENGTH);
 		this.nameBox.setTooltip(Tooltip.create(Component.literal(
-				"Name for the style you are about to save")));
+				I18n.tr(Keys.PRESETS_NAME_TOOLTIP))));
 		this.widgetSink.accept(this.nameBox);
 
-		this.saveButton = Button.builder(Component.literal("Save"), b -> saveCurrent())
+		this.saveButton = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_SAVE_LABEL)), b -> saveCurrent())
 				.bounds(0, 0, SAVE_BUTTON_W, this.userSaveH)
 				.build();
 		this.saveButton.setTooltip(Tooltip.create(Component.literal(
-				"Save the current style under this name.\n"
-						+ "Saving an existing name overwrites it.")));
+				I18n.tr(Keys.PRESETS_SAVE_TOOLTIP))));
 		this.widgetSink.accept(this.saveButton);
 	}
 
@@ -291,26 +292,26 @@ public final class PresetPanel extends AbstractWidget {
 			this.rowButtons[i] = apply;
 			this.widgetSink.accept(apply);
 
-			Button rename = Button.builder(Component.literal("R"), b -> renameRow(row))
+			Button rename = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_RENAME_LABEL)), b -> renameRow(row))
 					.bounds(0, 0, ROW_ACTION_W, this.userRowH)
 					.build();
 			rename.setTooltip(Tooltip.create(Component.literal(
-					"Rename this preset to the name typed above")));
+					I18n.tr(Keys.PRESETS_RENAME_TOOLTIP))));
 			this.renameButtons[i] = rename;
 			this.widgetSink.accept(rename);
 
-			Button duplicate = Button.builder(Component.literal("D"), b -> duplicateRow(row))
+			Button duplicate = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_DUPLICATE_LABEL)), b -> duplicateRow(row))
 					.bounds(0, 0, ROW_ACTION_W, this.userRowH)
 					.build();
 			duplicate.setTooltip(Tooltip.create(Component.literal(
-					"Save a copy of this preset under the name typed above")));
+					I18n.tr(Keys.PRESETS_DUPLICATE_TOOLTIP))));
 			this.duplicateButtons[i] = duplicate;
 			this.widgetSink.accept(duplicate);
 
-			Button delete = Button.builder(Component.literal("\u00d7"), b -> deleteRow(row))
+			Button delete = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_DELETE_LABEL)), b -> deleteRow(row))
 					.bounds(0, 0, DELETE_W, this.userRowH)
 					.build();
-			delete.setTooltip(Tooltip.create(Component.literal("Delete this preset")));
+			delete.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.PRESETS_DELETE_TOOLTIP))));
 			this.deleteButtons[i] = delete;
 			this.widgetSink.accept(delete);
 		}
@@ -322,16 +323,16 @@ public final class PresetPanel extends AbstractWidget {
 	}
 
 	private void createPager() {
-		this.prevButton = Button.builder(Component.literal("<"), b -> changePage(-1))
+		this.prevButton = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_PREV_LABEL)), b -> changePage(-1))
 				.bounds(0, 0, PAGER_BUTTON_W, this.userPagerH)
 				.build();
-		this.prevButton.setTooltip(Tooltip.create(Component.literal("Previous page")));
+		this.prevButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.PRESETS_PREV_TOOLTIP))));
 		this.widgetSink.accept(this.prevButton);
 
-		this.nextButton = Button.builder(Component.literal(">"), b -> changePage(1))
+		this.nextButton = Button.builder(Component.literal(I18n.tr(Keys.PRESETS_NEXT_LABEL)), b -> changePage(1))
 				.bounds(0, 0, PAGER_BUTTON_W, this.userPagerH)
 				.build();
-		this.nextButton.setTooltip(Tooltip.create(Component.literal("Next page")));
+		this.nextButton.setTooltip(Tooltip.create(Component.literal(I18n.tr(Keys.PRESETS_NEXT_TOOLTIP))));
 		this.widgetSink.accept(this.nextButton);
 	}
 
@@ -517,22 +518,26 @@ public final class PresetPanel extends AbstractWidget {
 			if (apply != null) {
 				apply.setMessage(Component.literal(present ? name : ""));
 				apply.setTooltip(present
-						? Tooltip.create(Component.literal("Apply \"" + name + "\" to this server"))
+						? Tooltip.create(Component.literal(
+						I18n.tr(Keys.PRESETS_ROW_APPLY_TOOLTIP, name)))
 						: null);
 			}
 			if (delete != null) {
 				delete.setTooltip(present
-						? Tooltip.create(Component.literal("Delete \"" + name + "\""))
+						? Tooltip.create(Component.literal(
+						I18n.tr(Keys.PRESETS_ROW_DELETE_TOOLTIP, name)))
 						: null);
 			}
 			if (rename != null) {
 				rename.setTooltip(present
-						? Tooltip.create(Component.literal("Rename \"" + name + "\" to the name typed above"))
+						? Tooltip.create(Component.literal(
+						I18n.tr(Keys.PRESETS_ROW_RENAME_TOOLTIP, name)))
 						: null);
 			}
 			if (duplicate != null) {
 				duplicate.setTooltip(present
-						? Tooltip.create(Component.literal("Save a copy of \"" + name + "\" under the name typed above"))
+						? Tooltip.create(Component.literal(
+						I18n.tr(Keys.PRESETS_ROW_DUPLICATE_TOOLTIP, name)))
 						: null);
 			}
 		}
@@ -744,25 +749,25 @@ public final class PresetPanel extends AbstractWidget {
 		int left = getX();
 		int top = getY();
 
-		drawWindow(graphics, left, top, this.builtinHeight, "BUILT-IN PRESETS");
+		drawWindow(graphics, left, top, this.builtinHeight, I18n.tr(Keys.PRESETS_WINDOW_BUILTIN));
 		drawWindow(graphics, left, top + this.userTop, this.height - this.userTop,
-				"YOUR PRESETS");
+				I18n.tr(Keys.PRESETS_WINDOW_USER));
 
 		if (!this.compact) {
-			sectionHeader(graphics, left + PAD, top + 15, "READY-MADE");
-			sectionHeader(graphics, left + PAD, top + this.userTop + 15, "SAVE CURRENT");
-			sectionHeader(graphics, left + PAD, top + this.userRowsY - 10, "SAVED");
+			sectionHeader(graphics, left + PAD, top + 15, I18n.tr(Keys.PRESETS_SECTION_READY));
+			sectionHeader(graphics, left + PAD, top + this.userTop + 15, I18n.tr(Keys.PRESETS_SECTION_SAVE));
+			sectionHeader(graphics, left + PAD, top + this.userRowsY - 10, I18n.tr(Keys.PRESETS_SECTION_SAVED));
 		}
 
 		// Page indicator, centred between the two pager buttons.
 		int pages = pageCount();
-		String pageText = "Page " + (this.page + 1) + "/" + pages;
+		String pageText = I18n.tr(Keys.PRESETS_PAGE, this.page + 1, pages);
 		int textWidth = this.font.width(pageText);
 		graphics.drawString(this.font, Component.literal(pageText),
 				left + (WIDTH - textWidth) / 2, top + this.userPagerY + 1, 0xFFB0B0B0, false);
 
 		if (this.store.size() == 0) {
-			graphics.drawString(this.font, Component.literal("Nothing saved yet"),
+			graphics.drawString(this.font, Component.literal(I18n.tr(Keys.PRESETS_EMPTY)),
 					left + PAD, top + this.userRowsY + 2, 0xFF707070, false);
 		}
 	}

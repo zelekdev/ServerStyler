@@ -2,6 +2,9 @@ package pl.zelekdev.serverstyler.client;
 
 import pl.zelekdev.serverstyler.config.ConfigManager;
 import pl.zelekdev.serverstyler.config.PresetStore;
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Lang;
+import pl.zelekdev.serverstyler.i18n.LangManager;
 import pl.zelekdev.serverstyler.render.RenderCache;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -10,8 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Client entrypoint. Owns the process-wide {@link ConfigManager} and
- * {@link RenderCache} instances that the mixins read from.
+ * Client entrypoint. Owns the process-wide {@link ConfigManager},
+ * {@link PresetStore}, {@link LangManager} and {@link RenderCache} instances that
+ * the mixins read from.
  */
 public final class ServerStylerClient implements ClientModInitializer {
 
@@ -20,6 +24,7 @@ public final class ServerStylerClient implements ClientModInitializer {
 
 	private static ConfigManager config;
 	private static PresetStore presets;
+	private static LangManager lang;
 	private static RenderCache renderCache;
 
 	@Override
@@ -28,8 +33,14 @@ public final class ServerStylerClient implements ClientModInitializer {
 		config.load();
 		presets = new PresetStore();
 		presets.load();
+		// The language files are loaded before anything can render a label, and the
+		// stored choice is applied on top of the manager's English default.
+		lang = new LangManager();
+		lang.load();
+		lang.setCurrent(config.getLanguage());
+		I18n.install(lang);
 		renderCache = new RenderCache(config);
-		LOGGER.info("ServerStyler client initialised.");
+		LOGGER.info("ServerStyler client initialised (language: {}).", lang.current().code());
 		if (config.wasMigrated()) {
 			LOGGER.info("Config upgraded from schema v{} to v{}. A copy of the previous "
 							+ "file was kept alongside servers.json.",
@@ -60,6 +71,7 @@ public final class ServerStylerClient implements ClientModInitializer {
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				ConfigManager current = config;
 				PresetStore currentPresets = presets;
+				LangManager currentLang = lang;
 				try {
 					// Distinguishes "quit with unsaved edits" from a plain quit: the latter
 					// must not rewrite servers.json at all.
@@ -68,6 +80,9 @@ public final class ServerStylerClient implements ClientModInitializer {
 					}
 					if (currentPresets != null) {
 						currentPresets.flushIfDirty();
+					}
+					if (currentLang != null) {
+						currentLang.flushIfDirty();
 					}
 				} catch (RuntimeException e) {
 					LOGGER.warn("Could not flush ServerStyler config on shutdown: {}",
@@ -81,12 +96,38 @@ public final class ServerStylerClient implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * Applies a new interface language everywhere: the translation table, the
+	 * persisted config and the on-disk language files.
+	 *
+	 * <p>Called from the ModMenu config screen. Kept here rather than in the screen
+	 * so the four per-version copies share one implementation.</p>
+	 */
+	public static void applyLanguage(Lang chosen) {
+		if (chosen == null) {
+			return;
+		}
+		LangManager currentLang = lang;
+		if (currentLang != null) {
+			currentLang.setCurrent(chosen);
+		}
+		ConfigManager currentConfig = config;
+		if (currentConfig != null) {
+			currentConfig.setLanguage(chosen.code());
+			currentConfig.saveAsync();
+		}
+	}
+
 	public static ConfigManager config() {
 		return config;
 	}
 
 	public static PresetStore presets() {
 		return presets;
+	}
+
+	public static LangManager lang() {
+		return lang;
 	}
 
 	public static RenderCache renderCache() {

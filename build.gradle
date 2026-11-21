@@ -12,6 +12,9 @@ base {
 
 repositories {
 	maven { url = 'https://maven.fabricmc.net/' }
+	// ModMenu is an optional integration: the config screen only appears when the
+	// player has ModMenu installed, so the dependency is compile-only.
+	maven { url = 'https://maven.terraformersmc.com/releases/' }
 	mavenCentral()
 }
 
@@ -56,6 +59,11 @@ dependencies {
 	// 0.5.0-beta.4, which is exactly what makes this an effective fix even when
 	// another mod jar-in-jars the broken pre-release.
 	include "io.github.llamalad7:mixinextras-fabric:${property('mixinextras_version')}"
+
+	// Optional ModMenu integration. compileOnly (not modImplementation) so the jar
+	// is never bundled and the mod still loads without ModMenu installed; the
+	// entrypoint is declared under "suggests" in fabric.mod.json.
+	modCompileOnly "com.terraformersmc:modmenu:${property('modmenu_version')}"
 }
 
 def mcJava = JavaVersion.toVersion(property('java_version'))

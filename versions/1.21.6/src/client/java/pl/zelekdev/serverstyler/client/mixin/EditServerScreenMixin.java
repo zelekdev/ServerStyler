@@ -8,6 +8,8 @@ import pl.zelekdev.serverstyler.config.ConfigManager;
 import pl.zelekdev.serverstyler.config.PresetStore;
 import pl.zelekdev.serverstyler.config.ServerStyle;
 import pl.zelekdev.serverstyler.config.ServerStyleConfig;
+import pl.zelekdev.serverstyler.i18n.I18n;
+import pl.zelekdev.serverstyler.i18n.Keys;
 import pl.zelekdev.serverstyler.render.TextStylingEngine;
 
 import net.minecraft.client.gui.Font;
@@ -148,7 +150,7 @@ public abstract class EditServerScreenMixin {
 
 		this.serverstyler$trigger = new StyleTriggerButton(
 				0, 0, StyleEditorPanel.TRIGGER_SIZE,
-				Component.literal("ServerStyler - edit the server name style"),
+				Component.literal(I18n.tr(Keys.TRIGGER_TOOLTIP)),
 				() -> serverstyler$togglePanels());
 		invoker.serverstyler$addRenderableWidget(this.serverstyler$trigger);
 

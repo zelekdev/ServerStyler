@@ -130,6 +130,12 @@ public final class ConfigManager {
 	 */
 	private volatile JsonObject migratedRoot = null;
 
+	/**
+	 * Interface language chosen by the player, stored in {@code servers.json} so it
+	 * can be changed by hand when ModMenu is not installed.
+	 */
+	private volatile String language = ServerStyleConfig.DEFAULT_LANGUAGE;
+
 	public ConfigManager() {
 		this(FabricLoader.getInstance().getConfigDir());
 	}
@@ -332,8 +338,39 @@ public final class ConfigManager {
 	private void apply(ServerStyleConfig cfg) {
 		styles.clear();
 		styles.putAll(cfg.getServers());
+		this.language = cfg.getLanguage();
 		mutationCounter.incrementAndGet();
 		LOGGER.info("Loaded {} custom server style(s).", styles.size());
+	}
+
+	// ------------------------------------------------------------------
+	// Interface language
+	// ------------------------------------------------------------------
+
+	/**
+	 * The language code stored in the config ({@code en}, {@code pl} or {@code de}).
+	 *
+	 * <p>Kept in {@code servers.json} rather than in the language files themselves
+	 * so a player without ModMenu can switch language by editing one line of the
+	 * config.</p>
+	 */
+	public String getLanguage() {
+		return language;
+	}
+
+	/**
+	 * Stores a new language choice and schedules a save.
+	 *
+	 * @return the normalised code that was actually stored
+	 */
+	public synchronized String setLanguage(String code) {
+		String normalised = pl.zelekdev.serverstyler.i18n.Lang.normalise(code);
+		if (normalised.equals(this.language)) {
+			return normalised;
+		}
+		this.language = normalised;
+		markDirty();
+		return normalised;
 	}
 
 	// ------------------------------------------------------------------
@@ -556,7 +593,11 @@ public final class ConfigManager {
 		for (Map.Entry<String, ServerStyle> e : styles.entrySet()) {
 			copy.put(e.getKey(), e.getValue().copy());
 		}
-		return new ServerStyleConfig(copy);
+		ServerStyleConfig snapshot = new ServerStyleConfig(copy);
+		// The language lives outside the style map, so it has to be carried over
+		// explicitly or every save would silently reset it to English.
+		snapshot.setLanguage(this.language);
+		return snapshot;
 	}
 
 	// ------------------------------------------------------------------
@@ -614,6 +655,8 @@ public final class ConfigManager {
 	}
 
 	private ServerStyleConfig buildDefault() {
-		return new ServerStyleConfig(new LinkedHashMap<>());
+		ServerStyleConfig cfg = new ServerStyleConfig(new LinkedHashMap<>());
+		cfg.setLanguage(this.language);
+		return cfg;
 	}
 }

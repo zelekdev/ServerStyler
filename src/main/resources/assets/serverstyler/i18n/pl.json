@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "language": "pl",
+  "strings": {
+    "panel.title": "ServerStyler",
+
+    "hex.label": "Hex",
+    "hex.tooltip": "Kolor wybranego punktu",
+
+    "mode.label": "Tryb",
+    "mode.tooltip": "Jednolity kolor lub gradient wielopunktowy",
+    "mode.gradient": "Gradient",
+    "mode.solid": "Jednolity",
+
+    "bold.label": "B",
+    "bold.tooltip": "Pogrubienie",
+    "italic.label": "I",
+    "italic.tooltip": "Kursywa",
+    "minicaps.tooltip": "Mini Caps - nazwa pisana małymi kapitalikami.\nPolskie znaki diakrytyczne są sprowadzane do litery bazowej",
+
+    "enabled.on": "Wł.",
+    "enabled.off": "Wył.",
+    "enabled.tooltip": "Zastosuj ten styl do nazwy serwera.\nWyłączenie zachowuje styl, ale go nie używa.",
+
+    "stop.add.label": "+",
+    "stop.add.tooltip": "Dodaj punkt gradientu",
+    "stop.remove.label": "-",
+    "stop.remove.tooltip": "Usuń wybrany punkt gradientu",
+
+    "align.left.label": "L",
+    "align.left.tooltip": "Wyrównaj do lewej",
+    "align.center.label": "C",
+    "align.center.tooltip": "Wyrównaj do środka",
+    "align.right.label": "R",
+    "align.right.tooltip": "Wyrównaj do prawej",
+
+    "undo.label": "Cofnij",
+    "undo.tooltip": "Cofnij ostatnią zmianę",
+    "redo.label": "Ponów",
+    "redo.tooltip": "Ponów cofniętą zmianę",
+    "reset.label": "Reset",
+    "reset.tooltip": "Przywróć domyślną białą nazwę wyrównaną do lewej.\nCofnij przywróci poprzedni wygląd.",
+
+    "section.colour": "KOLOR",
+    "section.style": "STYL",
+    "section.layout": "UKŁAD",
+
+    "preview.gradient": "Podgląd gradientu",
+    "preview.solid": "Podgląd koloru",
+
+    "slider.hue": "Barwa",
+    "slider.opacity": "Krycie",
+
+    "presets.title": "Presety ServerStyler",
+    "presets.apply.tooltip": "Zastosuj preset \"%s\" do tego serwera",
+    "presets.name.label": "Nazwa presetu",
+    "presets.name.tooltip": "Nazwa stylu, który chcesz zapisać",
+    "presets.save.label": "Zapisz",
+    "presets.save.tooltip": "Zapisz bieżący styl pod tą nazwą.\nZapis istniejącej nazwy nadpisze ją.",
+    "presets.rename.label": "Z",
+    "presets.rename.tooltip": "Zmień nazwę tego presetu na wpisaną powyżej",
+    "presets.duplicate.label": "K",
+    "presets.duplicate.tooltip": "Zapisz kopię tego presetu pod wpisaną powyżej nazwą",
+    "presets.delete.label": "\u00d7",
+    "presets.delete.tooltip": "Usuń ten preset",
+    "presets.prev.label": "<",
+    "presets.prev.tooltip": "Poprzednia strona",
+    "presets.next.label": ">",
+    "presets.next.tooltip": "Następna strona",
+
+    "presets.row.apply.tooltip": "Zastosuj \"%s\" do tego serwera",
+    "presets.row.delete.tooltip": "Usuń \"%s\"",
+    "presets.row.rename.tooltip": "Zmień nazwę \"%s\" na wpisaną powyżej",
+    "presets.row.duplicate.tooltip": "Zapisz kopię \"%s\" pod wpisaną powyżej nazwą",
+
+    "presets.window.builtin": "PRESETY Wbudowane",
+    "presets.window.user": "TWOJE PRESETY",
+    "presets.section.ready": "GOTOWE",
+    "presets.section.save": "ZAPISZ BIEŻĄCY",
+    "presets.section.saved": "ZAPISANE",
+    "presets.page": "Strona %d/%d",
+    "presets.empty": "Nic jeszcze nie zapisano",
+
+    "trigger.tooltip": "ServerStyler - edytuj styl nazwy serwera",
+
+    "config.title": "Ustawienia ServerStyler",
+    "config.language": "Język: %s",
+    "config.language.tooltip": "Wybierz język interfejsu ServerStyler",
+    "config.done": "Gotowe",
+    "config.hint.files": "Tłumaczenia są w config/serverstyler/lang/ i można je edytować ręcznie.",
+    "config.hint.manual": "Bez ModMenu ustaw \"language\" w config/serverstyler/servers.json."
+  }
+}
