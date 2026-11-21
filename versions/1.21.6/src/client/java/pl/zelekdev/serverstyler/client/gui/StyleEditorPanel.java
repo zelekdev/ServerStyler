@@ -76,11 +76,11 @@ public final class StyleEditorPanel extends AbstractWidget {
 	/** Width of the single-column panel (compact and tiny tiers). */
 	public static final int WIDTH = 180;
 
-	/** Width of the two-column studio panel (full tier). */
-	public static final int WIDE_WIDTH = 300;
+	/** Width of the studio panel (full tier). */
+	public static final int WIDE_WIDTH = 420;
 
-	/** Height of the two-column studio panel (GUI scale 1&ndash;2). */
-	public static final int HEIGHT = 164;
+	/** Height of the studio panel (GUI scale 1&ndash;2). */
+	public static final int HEIGHT = 204;
 
 	/** Height of the compact panel (GUI scale 3). */
 	public static final int COMPACT_HEIGHT = 184;
@@ -118,13 +118,22 @@ public final class StyleEditorPanel extends AbstractWidget {
 	// ---- Two-column studio geometry (full tier only) -------------------------
 
 	/** Gap between the colour column and the style column. */
-	private static final int COL_GAP = 12;
+	private static final int COL_GAP = 16;
 	/** Width of the left (colour) column in the studio layout. */
-	private static final int LEFT_W = 140;
-	/** Width of the right (style / layout / history) column. */
+	private static final int LEFT_W = 200;
+	/** Width of the right (style / layout) column. */
 	private static final int RIGHT_W = WIDE_WIDTH - PAD * 2 - COL_GAP - LEFT_W;
 	/** Thirds of {@link #RIGHT_W}, leaving 3 px gaps between the three cells. */
 	private static final int RIGHT_THIRD_W = (RIGHT_W - 6) / 3;
+	/** Thirds of the full studio content width, used by the footer toolbar. */
+	private static final int STUDIO_THIRD_W = (WIDE_WIDTH - PAD * 2 - 6) / 3;
+
+	/**
+	 * Smallest GUI-scaled screen width that still gets the studio layout. Below
+	 * this the wide panel would cover most of the server form, so the narrow
+	 * single column is used instead.
+	 */
+	private static final int STUDIO_MIN_SCREEN_W = 760;
 
 	/** Half-width of a stop handle marker, centred on the stop position. */
 	private static final int HANDLE_W_HALF = 4;
@@ -190,6 +199,8 @@ public final class StyleEditorPanel extends AbstractWidget {
 	private int formatY;
 	private int layoutLabelY;
 	private int alignY;
+	/** Caption row above the undo/redo/reset toolbar (studio only). */
+	private int historyLabelY;
 
 	private final ServerStyle style;
 	private final Font font;
@@ -354,11 +365,11 @@ public final class StyleEditorPanel extends AbstractWidget {
 			this.layoutLabelY = 158;
 			this.alignY = 168;
 		} else {
-			// Studio tier: a wide two-column panel. Colour on the left, style,
-			// layout and history on the right, with the live preview spanning the
-			// full width above both columns. This is the layout used at GUI scale
-			// 1-2, where there is plenty of horizontal room but vertical room is
-			// the scarce resource.
+			// Studio tier: a wide two-column panel with a full-width preview band
+			// on top and a full-width history toolbar at the bottom. Colour lives
+			// in the left column, style and layout in the right one. This is the
+			// layout used at GUI scale 1-2, where horizontal room is plentiful and
+			// vertical room is the scarce resource.
 			this.height = HEIGHT;
 			this.panelWidth = WIDE_WIDTH;
 			this.contentW = WIDE_WIDTH - PAD * 2;
@@ -367,24 +378,25 @@ public final class StyleEditorPanel extends AbstractWidget {
 			this.rightColX = PAD + LEFT_W + COL_GAP;
 			this.rightColW = RIGHT_W;
 			this.rowH = 16;
-			this.headerH = 18;
-			this.previewY = 22;
-			this.previewH = 20;
-			this.colourLabelY = 48;
-			this.barY = 62;
-			this.barH = 14;
+			this.headerH = 20;
+			this.previewY = 24;
+			this.previewH = 22;
+			this.colourLabelY = 52;
+			this.barY = 66;
+			this.barH = 16;
 			this.handleHalf = 4;
-			this.hueY = 82;
-			this.alphaY = 102;
-			this.hexY = 122;
-			this.recentY = 142;
+			this.hueY = 88;
+			this.alphaY = 108;
+			this.hexY = 128;
+			this.recentY = 148;
 			this.recentH = 12;
-			this.styleLabelY = 48;
-			this.modeY = 62;
-			this.formatY = 82;
-			this.layoutLabelY = 102;
-			this.alignY = 116;
-			this.historyY = 136;
+			this.styleLabelY = 52;
+			this.modeY = 66;
+			this.formatY = 90;
+			this.layoutLabelY = 118;
+			this.alignY = 132;
+			this.historyLabelY = 170;
+			this.historyY = 182;
 		}
 		// The recent-colour strip lives in the colour column, so it is measured
 		// against that column's width, not the whole panel.
@@ -499,6 +511,11 @@ public final class StyleEditorPanel extends AbstractWidget {
 	 * either to its right or below it.
 	 */
 	private boolean modeFits(int mode, int screenWidth, int screenHeight) {
+		// The studio panel is 420 px wide. On a narrow screen it would swallow the
+		// whole server form, so it is only offered when there is real room for it.
+		if (mode == MODE_FULL && screenWidth < STUDIO_MIN_SCREEN_W) {
+			return false;
+		}
 		int h = heightForMode(mode);
 		int w = widthForMode(mode);
 		int x = panelX(this.anchor.fieldLeft(), this.anchor.fieldRight(), screenWidth, w);
@@ -1006,14 +1023,16 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	/**
-	 * Two-column studio layout: colour controls in the left column, style, layout
-	 * and history in the right one. Both columns share the same row grid, so the
+	 * Studio layout: a full-width preview band on top, then two columns - colour
+	 * on the left, style and layout on the right - and a full-width history
+	 * toolbar pinned to the bottom. Both columns share the same row grid, so the
 	 * COLOUR and STYLE captions line up and the panel reads as a proper editor
 	 * rather than a stack of unrelated rows.
 	 */
 	private void layoutStudio(int originX, int originY) {
 		int lx = originX + this.leftColX;
 		int rx = originX + this.rightColX;
+		int col = originX + PAD;
 
 		place(this.hueSlider, lx, originY + this.hueY, this.leftColW, this.rowH);
 		place(this.alphaSlider, lx, originY + this.alphaY, this.leftColW, this.rowH);
@@ -1032,21 +1051,23 @@ public final class StyleEditorPanel extends AbstractWidget {
 		place(this.alignRightButton, rx + (RIGHT_THIRD_W + 3) * 2, originY + this.alignY,
 				this.rightColW - RIGHT_THIRD_W * 2 - 6, this.rowH);
 
-		place(this.undoButton, rx, originY + this.historyY, RIGHT_THIRD_W, this.rowH);
-		place(this.redoButton, rx + RIGHT_THIRD_W + 3, originY + this.historyY,
-				RIGHT_THIRD_W, this.rowH);
-		place(this.resetButton, rx + (RIGHT_THIRD_W + 3) * 2, originY + this.historyY,
-				this.rightColW - RIGHT_THIRD_W * 2 - 6, this.rowH);
+		// History toolbar spans the whole panel width, so it reads as a footer
+		// rather than as a third control group squeezed into the right column.
+		place(this.undoButton, col, originY + this.historyY, STUDIO_THIRD_W, this.rowH);
+		place(this.redoButton, col + STUDIO_THIRD_W + 3, originY + this.historyY,
+				STUDIO_THIRD_W, this.rowH);
+		place(this.resetButton, col + (STUDIO_THIRD_W + 3) * 2, originY + this.historyY,
+				this.contentW - STUDIO_THIRD_W * 2 - 6, this.rowH);
 
 		// Header switch, vertically centred in the header band.
-		int switchH = 12;
-		place(this.enabledButton, originX + this.panelWidth - PAD - 34,
-				originY + (this.headerH - switchH) / 2, 34, switchH);
+		int switchH = 14;
+		place(this.enabledButton, originX + this.panelWidth - PAD - 40,
+				originY + (this.headerH - switchH) / 2, 40, switchH);
 
 		// Stop add/remove, right-aligned in the COLOUR caption row.
-		int stopH = 10;
-		place(this.addStopButton, lx + this.leftColW - 28, originY + this.colourLabelY - 1, 13, stopH);
-		place(this.removeStopButton, lx + this.leftColW - 13, originY + this.colourLabelY - 1, 13, stopH);
+		int stopH = 11;
+		place(this.addStopButton, lx + this.leftColW - 30, originY + this.colourLabelY - 2, 14, stopH);
+		place(this.removeStopButton, lx + this.leftColW - 15, originY + this.colourLabelY - 2, 14, stopH);
 	}
 
 	/** Single-column layout used by the compact and tiny tiers. */
@@ -1323,55 +1344,92 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	/**
-	 * Studio cards: one tall card per column. The left card holds the whole colour
-	 * group, the right card holds style, layout and history, so the two halves of
-	 * the editor are visually distinct without needing a divider line.
+	 * Studio cards: one card per column plus a footer card for the history
+	 * toolbar. The left card holds the whole colour group, the right card holds
+	 * style and layout, and the footer spans the full width, so the three areas
+	 * of the editor are visually distinct without needing divider lines.
 	 */
 	private void drawStudioCards(GuiGraphics graphics, int left, int top) {
-		int lx = left + this.leftColX - 3;
-		int lw = this.leftColW + 6;
-		int colourTop = top + this.colourLabelY - 2;
-		int colourBottom = top + this.recentY + this.recentH + 1;
+		int lx = left + this.leftColX - 4;
+		int lw = this.leftColW + 8;
+		int colourTop = top + this.colourLabelY - 4;
+		int colourBottom = top + this.recentY + this.recentH + 3;
 		drawCard(graphics, lx, colourTop, lw, colourBottom - colourTop);
 
-		int rx = left + this.rightColX - 3;
-		int rw = this.rightColW + 6;
-		int rightTop = top + this.styleLabelY - 2;
-		int rightBottom = top + this.historyY + this.rowH + 1;
+		int rx = left + this.rightColX - 4;
+		int rw = this.rightColW + 8;
+		int rightTop = top + this.styleLabelY - 4;
+		int rightBottom = top + this.alignY + this.rowH + 3;
 		drawCard(graphics, rx, rightTop, rw, rightBottom - rightTop);
-	}
 
-	private void drawCard(GuiGraphics graphics, int x, int y, int w, int h) {
-		graphics.fill(x, y, x + w, y + h, 0x33000000);
-		graphics.fill(x, y, x + w, y + 1, 0x22FFFFFF);
-		graphics.fill(x, y + h - 1, x + w, y + h, 0x22000000);
-		graphics.fill(x, y, x + 1, y + h, 0x22FFFFFF);
-		graphics.fill(x + w - 1, y, x + w, y + h, 0x22000000);
+		int fx = left + PAD - 4;
+		int fw = this.contentW + 8;
+		int footerTop = top + this.historyLabelY - 4;
+		int footerBottom = top + this.historyY + this.rowH + 3;
+		drawCard(graphics, fx, footerTop, fw, footerBottom - footerTop);
 	}
 
 	/**
-	 * Panel chrome: a near-opaque black body (so text behind it never shows
-	 * through), a light one-pixel border, and a brighter header band. The same
-	 * visual grammar as the game's own dialogs.
+	 * A recessed well: darker than the panel body, with a dark top/left edge and a
+	 * faint light bottom/right edge. That is the inverse of the panel's own bevel,
+	 * so the cards read as cut into the window instead of floating on top of it.
+	 */
+	private void drawCard(GuiGraphics graphics, int x, int y, int w, int h) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		graphics.fill(x, y, x + w, y + h, 0x66000000);
+		graphics.fill(x, y, x + w, y + 1, 0x99000000);
+		graphics.fill(x, y, x + 1, y + h, 0x99000000);
+		graphics.fill(x, y + h - 1, x + w, y + h, 0x1AFFFFFF);
+		graphics.fill(x + w - 1, y, x + w, y + h, 0x1AFFFFFF);
+	}
+
+	/**
+	 * Panel chrome: a near-opaque body (so text behind it never shows through), a
+	 * bevelled outer frame, a raised header band and a recessed footer band. The
+	 * same visual grammar as the game's own dialogs, so the editor reads as a
+	 * native window rather than a floating rectangle.
 	 */
 	private void drawBackdrop(GuiGraphics graphics, int left, int top, int right, int bottom) {
-		graphics.fill(left, top, right, bottom, 0xF0101010);
-		graphics.fill(left, top, right, top + this.headerH, 0xFF2A2A2A);
-		graphics.fill(left, top + this.headerH, right, top + this.headerH + 1, 0xFF000000);
+		// Body: a very dark, slightly blue-tinted slate so the cards on top of it
+		// have something to sit against.
+		graphics.fill(left, top, right, bottom, 0xF00E0E12);
 
-		// Outer border: a light inner line so the panel edge catches the eye on any
-		// background, then a dark line beneath for depth.
+		// Header band, with a lighter top edge and a hard shadow line beneath.
+		graphics.fill(left, top, right, top + this.headerH, 0xFF23232B);
+		graphics.fill(left, top, right, top + 1, 0xFF3A3A46);
+		graphics.fill(left, top + this.headerH - 1, right, top + this.headerH, 0xFF000000);
+
+		// Footer band in the studio layout, mirroring the header so the panel is
+		// visually bracketed top and bottom.
+		if (this.studio) {
+			int footerTop = top + this.historyLabelY - 6;
+			graphics.fill(left, footerTop, right, bottom, 0xFF17171D);
+			graphics.fill(left, footerTop, right, footerTop + 1, 0xFF000000);
+		}
+
+		// Outer frame: dark outline, then a light inner bevel on the top and left
+		// edges and a dark one on the bottom and right, so the panel looks raised.
 		graphics.renderOutline(left, top, this.panelWidth, this.height, 0xFF000000);
-		graphics.fill(left + 1, top + 1, right - 1, top + 2, 0xFF5A5A5A);
+		graphics.fill(left + 1, top + 1, right - 1, top + 2, 0xFF4A4A58);
+		graphics.fill(left + 1, top + 1, left + 2, bottom - 1, 0xFF3A3A46);
+		graphics.fill(left + 1, bottom - 2, right - 1, bottom - 1, 0xFF05050A);
+		graphics.fill(right - 2, top + 1, right - 1, bottom - 1, 0xFF05050A);
 	}
 
 	private void drawHeader(GuiGraphics graphics, int left, int top, int right) {
 		int textY = top + (this.headerH - 8) / 2;
+		// Accent bar left of the title, tinted with the current primary colour so
+		// the header always reflects what is being edited.
+		int accent = 0xFF000000 | (ColorUtils.parseHex(this.style.getColor(0)) & 0xFFFFFF);
+		graphics.fill(left + PAD - 4, textY - 1, left + PAD - 2, textY + 9, accent);
 		graphics.drawString(this.font, getMessage(), left + PAD, textY, 0xFFFFFFFF, true);
+
 		// Accent swatch reflecting the current gradient, between title and switch.
-		int swatchW = 34;
-		int swatchH = Math.min(8, this.headerH - 4);
-		int swatchX = right - PAD - 34 - 6 - swatchW;
+		int swatchW = 40;
+		int swatchH = Math.min(10, this.headerH - 6);
+		int swatchX = right - PAD - 40 - 8 - swatchW;
 		int swatchY = top + (this.headerH - swatchH) / 2;
 		drawGradientStrip(graphics, swatchX, swatchY, swatchX + swatchW, swatchY + swatchH);
 	}
@@ -1390,19 +1448,24 @@ public final class StyleEditorPanel extends AbstractWidget {
 		int y = top + this.previewY;
 		int w = this.contentW;
 
+		// The well is the exact background the multiplayer list uses, framed with a
+		// dark inset border so it reads as a screen rather than a coloured bar.
 		graphics.fill(x, y, x + w, y + this.previewH, TextStylingEngine.LIST_BACKGROUND);
-		graphics.fill(x, y, x + w, y + 1, 0x40FFFFFF);
+		graphics.fill(x, y, x + w, y + 1, 0xFF000000);
+		graphics.fill(x, y + this.previewH - 1, x + w, y + this.previewH, 0xFF000000);
+		graphics.fill(x, y, x + 1, y + this.previewH, 0xFF000000);
+		graphics.fill(x + w - 1, y, x + w, y + this.previewH, 0xFF000000);
 
 		Component component = TextStylingEngine.buildComponent(previewText(), this.style);
 		int textWidth = this.font.width(component);
 		int textY = y + (this.previewH - 8) / 2;
-		if (textWidth <= w - 6) {
+		if (textWidth <= w - 8) {
 			int textX = x + TextStylingEngine.alignedPadding(w, textWidth, this.style.getAlignment());
 			graphics.drawString(this.font, component, textX, textY, 0xFFFFFFFF, false);
 		} else {
 			// Too wide for the strip: clip rather than letting it bleed into the frame.
 			graphics.enableScissor(x + 1, y + 1, x + w - 1, y + this.previewH - 1);
-			graphics.drawString(this.font, component, x + 3, textY, 0xFFFFFFFF, false);
+			graphics.drawString(this.font, component, x + 4, textY, 0xFFFFFFFF, false);
 			graphics.disableScissor();
 		}
 	}
@@ -1505,13 +1568,22 @@ public final class StyleEditorPanel extends AbstractWidget {
 	}
 
 	private void drawSectionLabels(GuiGraphics graphics, int left, int top) {
-		int labelColor = 0xFFB8B8B8;
+		int labelColor = 0xFFC8C8D4;
+		// The COLOUR caption stops short of the +/- buttons so the rule never runs
+		// underneath them.
+		int colourRuleRight = left + this.leftColX + this.leftColW - 34;
 		sectionLabel(graphics, left + this.leftColX, top + this.colourLabelY,
-				I18n.tr(Keys.SECTION_COLOUR), labelColor);
+				I18n.tr(Keys.SECTION_COLOUR), labelColor, colourRuleRight);
 		sectionLabel(graphics, left + this.rightColX, top + this.styleLabelY,
-				I18n.tr(Keys.SECTION_STYLE), labelColor);
+				I18n.tr(Keys.SECTION_STYLE), labelColor,
+				left + this.rightColX + this.rightColW);
 		sectionLabel(graphics, left + this.rightColX, top + this.layoutLabelY,
-				I18n.tr(Keys.SECTION_LAYOUT), labelColor);
+				I18n.tr(Keys.SECTION_LAYOUT), labelColor,
+				left + this.rightColX + this.rightColW);
+		if (this.studio) {
+			sectionLabel(graphics, left + PAD, top + this.historyLabelY,
+					I18n.tr(Keys.SECTION_HISTORY), labelColor, left + PAD + this.contentW);
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -1584,8 +1656,19 @@ public final class StyleEditorPanel extends AbstractWidget {
 		return slot;
 	}
 
-	private void sectionLabel(GuiGraphics graphics, int x, int y, String label, int color) {
-		graphics.drawString(this.font, Component.literal(label), x, y, color, false);
+	/**
+	 * A group caption: a small accent tick followed by the label, then a faint
+	 * rule that runs to {@code ruleRight}. The rule is what makes the three
+	 * groups read as headed sections instead of loose rows.
+	 */
+	private void sectionLabel(GuiGraphics graphics, int x, int y, String label, int color,
+							  int ruleRight) {
+		graphics.fill(x, y + 1, x + 2, y + 8, 0xFF6E6E82);
+		graphics.drawString(this.font, Component.literal(label), x + 5, y, color, false);
+		int ruleX = x + 5 + this.font.width(label) + 4;
+		if (ruleRight > ruleX) {
+			graphics.fill(ruleX, y + 4, ruleRight, y + 5, 0x24FFFFFF);
+		}
 	}
 
 	/** Horizontal gradient strip from the style's stops, used in the header. */

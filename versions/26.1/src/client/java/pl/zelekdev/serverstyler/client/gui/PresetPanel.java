@@ -788,28 +788,46 @@ public final class PresetPanel extends AbstractWidget {
 		}
 	}
 
-	/** Draws one framed window with its own header bar. */
+	/**
+	 * Draws one framed window with its own header bar.
+	 *
+	 * <p>Same chrome as the style editor: a dark slate body, a raised header band
+	 * with a light top edge and a hard shadow line, and a bevelled outer frame.
+	 * The two panels therefore read as one family of windows.</p>
+	 */
 	private void drawWindow(GuiGraphicsExtractor graphics, int left, int top, int windowHeight,
 							String title) {
 		int right = left + WIDTH;
 		int bottom = top + windowHeight;
 
-		graphics.fill(left, top, right, bottom, 0xF0101010);
-		graphics.fill(left, top, right, top + this.headerH, 0xFF2A2A2A);
-		graphics.fill(left, top + this.headerH, right, top + this.headerH + 1, 0xFF000000);
-		graphics.outline(left, top, WIDTH, windowHeight, 0xFF000000);
-		graphics.fill(left + 1, top + 1, right - 1, top + 2, 0xFF5A5A5A);
+		graphics.fill(left, top, right, bottom, 0xF00E0E12);
+		graphics.fill(left, top, right, top + this.headerH, 0xFF23232B);
+		graphics.fill(left, top, right, top + 1, 0xFF3A3A46);
+		graphics.fill(left, top + this.headerH - 1, right, top + this.headerH, 0xFF000000);
 
-		graphics.text(this.font, Component.literal(title), left + PAD, top + 3,
+		graphics.outline(left, top, WIDTH, windowHeight, 0xFF000000);
+		graphics.fill(left + 1, top + 1, right - 1, top + 2, 0xFF4A4A58);
+		graphics.fill(left + 1, top + 1, left + 2, bottom - 1, 0xFF3A3A46);
+		graphics.fill(left + 1, bottom - 2, right - 1, bottom - 1, 0xFF05050A);
+		graphics.fill(right - 2, top + 1, right - 1, bottom - 1, 0xFF05050A);
+
+		int textY = top + (this.headerH - 8) / 2;
+		graphics.fill(left + PAD - 4, textY - 1, left + PAD - 2, textY + 9, 0xFF6E6E82);
+		graphics.text(this.font, Component.literal(title), left + PAD, textY,
 				0xFFFFFFFF, true);
 	}
 
+	/** A group caption: accent tick, label, then a faint rule to the right edge. */
 	private void sectionHeader(GuiGraphicsExtractor graphics, int x, int y, String label) {
-		graphics.text(this.font, Component.literal(label), x, y, 0xFF9A9A9A, false);
+		graphics.fill(x, y + 1, x + 2, y + 8, 0xFF6E6E82);
+		graphics.text(this.font, Component.literal(label), x + 5, y, 0xFFC8C8D4, false);
 		int labelWidth = this.font.width(label);
-		int lineX = x + labelWidth + 4;
+		int lineX = x + 5 + labelWidth + 4;
 		int lineY = y + 4;
-		graphics.fill(lineX, lineY, getX() + WIDTH - PAD, lineY + 1, 0x30FFFFFF);
+		int lineRight = getX() + WIDTH - PAD;
+		if (lineRight > lineX) {
+			graphics.fill(lineX, lineY, lineRight, lineY + 1, 0x24FFFFFF);
+		}
 	}
 
 	@Override

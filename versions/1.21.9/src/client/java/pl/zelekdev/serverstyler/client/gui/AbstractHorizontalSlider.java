@@ -164,17 +164,20 @@ public abstract class AbstractHorizontalSlider extends AbstractWidget {
 	}
 
 	/**
-	 * The shared chrome: a black well with a subtle light top edge, matching the
-	 * inset look of vanilla's text fields rather than a floating rectangle.
+	 * The shared chrome: a recessed well with a dark top/left edge and a faint
+	 * light bottom/right edge, matching the inset look of vanilla's text fields
+	 * and of the panel's own section cards rather than a floating rectangle.
 	 */
 	protected void drawFrame(GuiGraphics graphics) {
 		int left = getX();
 		int top = getY();
 		int right = getX() + getWidth();
 		int bottom = getY() + getHeight();
-		graphics.fill(left, top, right, bottom, 0xFF1A1A1A);
+		graphics.fill(left, top, right, bottom, 0xFF14141A);
 		graphics.fill(left, top, right, top + 1, 0xFF000000);
-		graphics.fill(left, bottom - 1, right, bottom, 0xFF3A3A3A);
+		graphics.fill(left, top, left + 1, bottom, 0xFF000000);
+		graphics.fill(left, bottom - 1, right, bottom, 0x24FFFFFF);
+		graphics.fill(right - 1, top, right, bottom, 0x24FFFFFF);
 	}
 
 	/** Paints the colour/gradient track between {@link #trackLeft()} and {@link #trackRight()}. */

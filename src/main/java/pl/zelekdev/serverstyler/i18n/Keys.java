@@ -62,6 +62,7 @@ public final class Keys {
 	public static final String SECTION_COLOUR = "section.colour";
 	public static final String SECTION_STYLE = "section.style";
 	public static final String SECTION_LAYOUT = "section.layout";
+	public static final String SECTION_HISTORY = "section.history";
 
 	public static final String PREVIEW_GRADIENT = "preview.gradient";
 	public static final String PREVIEW_SOLID = "preview.solid";
